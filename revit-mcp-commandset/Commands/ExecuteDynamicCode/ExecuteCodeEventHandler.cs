@@ -7,22 +7,22 @@ using RevitMCPSDK.API.Interfaces;
 namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
 {
     /// <summary>
-    /// 处理代码执行的外部事件处理器
+    /// External event handler for processing code execution
     /// </summary>
     public class ExecuteCodeEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
     {
-        // 代码执行参数
+        // Code execution parameters
         private string _generatedCode;
         private object[] _executionParameters;
 
-        // 执行结果信息
+        // Execution result information
         public ExecutionResultInfo ResultInfo { get; private set; }
 
-        // 状态同步对象
+        // Status synchronization object
         public bool TaskCompleted { get; private set; }
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
 
-        // 设置要执行的代码和参数
+        // Set code and parameters to execute
         public void SetExecutionParameters(string code, object[] parameters = null)
         {
             _generatedCode = code;
@@ -31,7 +31,7 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
             _resetEvent.Reset();
         }
 
-        // 等待执行完成 - IWaitableExternalEventHandler接口实现
+        // Wait for execution completion - IWaitableExternalEventHandler interface implementation
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
             return _resetEvent.WaitOne(timeoutMilliseconds);
@@ -44,11 +44,11 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
                 var doc = app.ActiveUIDocument.Document;
                 ResultInfo = new ExecutionResultInfo();
 
-                using (var transaction = new Transaction(doc, "执行AI代码"))
+                using (var transaction = new Transaction(doc, "Execute AI Code"))
                 {
                     transaction.Start();
 
-                    // 动态编译执行代码
+                    // Dynamically compile and execute code
                     var result = CompileAndExecuteCode(
                         code: _generatedCode,
                         doc: doc,
@@ -64,7 +64,7 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
             catch (Exception ex)
             {
                 ResultInfo.Success = false;
-                ResultInfo.ErrorMessage = $"执行失败: {ex.Message}";
+                ResultInfo.ErrorMessage = $"Execution failed: {ex.Message}";
             }
             finally
             {
@@ -75,7 +75,7 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
 
         private object CompileAndExecuteCode(string code, Document doc, object[] parameters)
         {
-            // 添加必要的程序集引用
+            // Add necessary assembly references
             var compilerParams = new CompilerParameters
             {
                 GenerateInMemory = true,
@@ -89,7 +89,7 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
                 }
             };
 
-            // 包装代码以规范入口点
+            // Wrap code to standardize entry point
             var wrappedCode = $@"
 using System;
 using Autodesk.Revit.DB;
@@ -102,13 +102,13 @@ namespace AIGeneratedCode
     {{
         public static object Execute(Document document, object[] parameters)
         {{
-            // 用户代码入口
+            // User code entry point
             {code}
         }}
     }}
 }}";
 
-            // 编译代码
+            // Compile code
             using (var provider = new CSharpCodeProvider())
             {
                 var compileResults = provider.CompileAssemblyFromSource(
@@ -116,16 +116,16 @@ namespace AIGeneratedCode
                     wrappedCode
                 );
 
-                // 处理编译结果
+                // Handle compilation results
                 if (compileResults.Errors.HasErrors)
                 {
                     var errors = string.Join("\n", compileResults.Errors
                         .Cast<CompilerError>()
                         .Select(e => $"Line {e.Line}: {e.ErrorText}"));
-                    throw new Exception($"代码编译错误:\n{errors}");
+                    throw new Exception($"Code compilation error:\n{errors}");
                 }
 
-                // 反射调用执行方法
+                // Invoke execution method via reflection
                 var assembly = compileResults.CompiledAssembly;
                 var executorType = assembly.GetType("AIGeneratedCode.CodeExecutor");
                 var executeMethod = executorType.GetMethod("Execute");
@@ -136,11 +136,11 @@ namespace AIGeneratedCode
 
         public string GetName()
         {
-            return "执行AI代码";
+            return "Execute AI Code";
         }
     }
 
-    // 执行结果数据结构
+    // Execution result data structure
     public class ExecutionResultInfo
     {
         [JsonProperty("success")]
