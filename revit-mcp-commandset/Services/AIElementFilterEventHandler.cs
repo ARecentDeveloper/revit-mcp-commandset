@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using RevitMCPSDK.API.Interfaces;
 using RevitMCPCommandSet.Models.Common;
 using RevitMCPCommandSet.Utils;
+using RevitMCPCommandSet.Utils.ParameterMappings;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -123,6 +124,19 @@ namespace RevitMCPCommandSet.Services
                 throw new ArgumentNullException(nameof(doc));
             if (settings == null)
                 throw new ArgumentNullException(nameof(settings));
+                
+            // Parse natural language query if no explicit parameter filters
+            if (settings.ParameterFilters.Count == 0 && !string.IsNullOrWhiteSpace(settings.NaturalLanguageQuery))
+            {
+                ParseNaturalLanguageQuery(settings);
+            }
+            
+            // For debugging: If we're filtering structural framing, let's assume parameter filtering might be intended
+            if (settings.FilterCategory == "OST_StructuralFraming" && settings.ParameterFilters.Count == 0)
+            {
+                System.Diagnostics.Trace.WriteLine("Structural framing filter detected - parameter filtering may be intended but not specified");
+            }
+            
             // Validate filter settings
             if (!settings.Validate(out string errorMessage))
             {
@@ -281,7 +295,305 @@ namespace RevitMCPCommandSet.Services
                     System.Diagnostics.Trace.WriteLine($"Applied combined filter with {filters.Count} filter conditions (logical AND relationship)");
                 }
             }
-            return collector.ToElements().ToList();
+
+            // Get initial elements from collector
+            var elements = collector.ToElements().ToList();
+
+            // 5. Apply parameter filters (post-processing since Revit's ElementFilter doesn't support custom parameter filtering)
+            if (settings.ParameterFilters != null && settings.ParameterFilters.Count > 0)
+            {
+                elements = ApplyParameterFilters(elements, settings, appliedFilters);
+            }
+
+            return elements;
+        }
+
+        /// <summary>
+        /// Parse natural language query and extract parameter filters
+        /// </summary>
+        private static void ParseNaturalLanguageQuery(FilterSetting settings)
+        {
+            if (string.IsNullOrWhiteSpace(settings.NaturalLanguageQuery))
+                return;
+
+            var query = settings.NaturalLanguageQuery.ToLower();
+            
+            // Common parameter patterns
+            var patterns = new Dictionary<string, string[]>
+            {
+                { "length", new[] { "length", "long", "l " } },
+                { "height", new[] { "height", "high", "h ", "depth", "d " } },
+                { "width", new[] { "width", "wide", "w " } },
+                { "flange thickness", new[] { "flange thickness", "flange", "tf" } },
+                { "web thickness", new[] { "web thickness", "web", "tw" } },
+                { "moment of inertia strong axis", new[] { "moment of inertia strong", "ix", "strong axis" } },
+                { "moment of inertia weak axis", new[] { "moment of inertia weak", "iy", "weak axis" } },
+                { "section area", new[] { "section area", "area" } },
+                { "nominal weight", new[] { "weight", "nominal weight" } },
+                { "structural usage", new[] { "structural usage", "usage" } }
+            };
+
+            // Operator patterns
+            var operators = new Dictionary<string, string>
+            {
+                { "greater than", ">" },
+                { "more than", ">" },
+                { "larger than", ">" },
+                { "bigger than", ">" },
+                { "> ", ">" },
+                { "less than", "<" },
+                { "smaller than", "<" },
+                { "< ", "<" },
+                { "equal to", "=" },
+                { "equals", "=" },
+                { "= ", "=" },
+                { "not equal", "!=" },
+                { "contains", "contains" }
+            };
+
+            foreach (var paramPattern in patterns)
+            {
+                foreach (var paramKeyword in paramPattern.Value)
+                {
+                    if (query.Contains(paramKeyword))
+                    {
+                        // Found parameter, now look for operator and value
+                        foreach (var opPattern in operators)
+                        {
+                            var opIndex = query.IndexOf(opPattern.Key);
+                            if (opIndex > 0)
+                            {
+                                // Extract value after operator
+                                var valueStart = opIndex + opPattern.Key.Length;
+                                var valueText = query.Substring(valueStart).Trim();
+                                
+                                // Extract numeric value
+                                var valueMatch = System.Text.RegularExpressions.Regex.Match(valueText, @"(\d+\.?\d*)");
+                                if (valueMatch.Success)
+                                {
+                                    if (double.TryParse(valueMatch.Value, out double value))
+                                    {
+                                        var paramFilter = new ParameterFilter
+                                        {
+                                            Name = paramPattern.Key,
+                                            Operator = opPattern.Value,
+                                            Value = value
+                                        };
+                                        
+                                        settings.ParameterFilters.Add(paramFilter);
+                                        System.Diagnostics.Trace.WriteLine($"Parsed parameter filter: {paramFilter.Name} {paramFilter.Operator} {paramFilter.Value}");
+                                        return; // Found one filter, that's enough for now
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Apply parameter-based filters using ParameterMappingManager
+        /// </summary>
+        private static List<Element> ApplyParameterFilters(List<Element> elements, FilterSetting settings, List<string> appliedFilters)
+        {
+            if (elements == null || elements.Count == 0 || settings.ParameterFilters == null || settings.ParameterFilters.Count == 0)
+                return elements;
+
+            // Resolve category for parameter mapping
+            BuiltInCategory? builtInCategory = null;
+            if (!string.IsNullOrWhiteSpace(settings.FilterCategory))
+            {
+                if (Enum.TryParse(settings.FilterCategory, true, out BuiltInCategory category))
+                {
+                    builtInCategory = category;
+                }
+            }
+
+            var filteredElements = new List<Element>();
+
+            foreach (var element in elements)
+            {
+                bool elementMatches = true;
+
+                // Apply all parameter filters (AND logic)
+                foreach (var paramFilter in settings.ParameterFilters)
+                {
+                    if (!ElementMatchesParameterFilter(element, paramFilter, builtInCategory))
+                    {
+                        elementMatches = false;
+                        break;
+                    }
+                }
+
+                if (elementMatches)
+                {
+                    filteredElements.Add(element);
+                }
+            }
+
+            // Add applied filter information
+            foreach (var paramFilter in settings.ParameterFilters)
+            {
+                appliedFilters.Add($"Parameter: {paramFilter.Name} {paramFilter.Operator} {paramFilter.Value}");
+            }
+
+            System.Diagnostics.Trace.WriteLine($"Parameter filtering: {elements.Count} → {filteredElements.Count} elements");
+
+            return filteredElements;
+        }
+
+        /// <summary>
+        /// Check if element matches a parameter filter using ParameterMappingManager
+        /// </summary>
+        private static bool ElementMatchesParameterFilter(Element element, ParameterFilter paramFilter, BuiltInCategory? category)
+        {
+            try
+            {
+                // Get parameter using ParameterMappingManager if category is available
+                Parameter param = null;
+                if (category.HasValue)
+                {
+                    param = ParameterMappingManager.GetParameter(element, paramFilter.Name, category.Value);
+                }
+                else
+                {
+                    // Fallback to generic parameter lookup
+                    param = element.LookupParameter(paramFilter.Name);
+                    if (param == null)
+                    {
+                        // Try type parameter
+                        ElementType elementType = element.Document.GetElement(element.GetTypeId()) as ElementType;
+                        param = elementType?.LookupParameter(paramFilter.Name);
+                    }
+                }
+
+                if (param == null || !param.HasValue)
+                    return false;
+
+                // Convert filter value using ParameterMappingManager if category is available
+                object convertedValue = paramFilter.Value;
+                if (category.HasValue)
+                {
+                    convertedValue = ParameterMappingManager.ConvertValue(paramFilter.Name, paramFilter.Value, category.Value);
+                }
+
+                // Determine value type if not specified
+                var valueType = paramFilter.ValueType ?? DetermineParameterValueType(param);
+
+                // Evaluate condition
+                return EvaluateParameterCondition(param, paramFilter.Operator, convertedValue, valueType);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"Error evaluating parameter filter '{paramFilter.Name}': {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Determine parameter value type from Revit parameter
+        /// </summary>
+        private static ParameterValueType DetermineParameterValueType(Parameter param)
+        {
+            switch (param.StorageType)
+            {
+                case StorageType.String:
+                    return ParameterValueType.String;
+                case StorageType.Integer:
+                    // Check if it's a boolean (0/1 integer) - simplified for Revit 2024
+                    var paramName = param.Definition.Name?.ToLower();
+                    if (paramName != null && (paramName.Contains("yes") || paramName.Contains("no") || paramName.Contains("bool")))
+                        return ParameterValueType.Boolean;
+                    return ParameterValueType.Integer;
+                case StorageType.Double:
+                    return ParameterValueType.Double;
+                default:
+                    return ParameterValueType.String;
+            }
+        }
+
+        /// <summary>
+        /// Evaluate parameter condition based on operator and value type
+        /// </summary>
+        private static bool EvaluateParameterCondition(Parameter param, string operatorType, object convertedValue, ParameterValueType valueType)
+        {
+            try
+            {
+                switch (valueType)
+                {
+                    case ParameterValueType.Double:
+                        return EvaluateNumericCondition(param.AsDouble(), operatorType, Convert.ToDouble(convertedValue));
+
+                    case ParameterValueType.Integer:
+                        return EvaluateNumericCondition(param.AsInteger(), operatorType, Convert.ToInt32(convertedValue));
+
+                    case ParameterValueType.String:
+                        return EvaluateStringCondition(param.AsString(), operatorType, convertedValue?.ToString());
+
+                    case ParameterValueType.Boolean:
+                        return EvaluateBooleanCondition(param.AsInteger() != 0, operatorType, Convert.ToBoolean(convertedValue));
+
+                    default:
+                        return EvaluateStringCondition(param.AsValueString(), operatorType, convertedValue?.ToString());
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Evaluate numeric conditions
+        /// </summary>
+        private static bool EvaluateNumericCondition(double elementValue, string operatorType, double filterValue)
+        {
+            switch (operatorType)
+            {
+                case ">": return elementValue > filterValue;
+                case "<": return elementValue < filterValue;
+                case ">=": return elementValue >= filterValue;
+                case "<=": return elementValue <= filterValue;
+                case "=":
+                case "==": return Math.Abs(elementValue - filterValue) < 0.001;
+                case "!=": return Math.Abs(elementValue - filterValue) >= 0.001;
+                default: return false;
+            }
+        }
+
+        /// <summary>
+        /// Evaluate string conditions
+        /// </summary>
+        private static bool EvaluateStringCondition(string elementValue, string operatorType, string filterValue)
+        {
+            if (elementValue == null) elementValue = "";
+            if (filterValue == null) filterValue = "";
+
+            switch (operatorType.ToLower())
+            {
+                case "=":
+                case "==": return elementValue.Equals(filterValue, StringComparison.OrdinalIgnoreCase);
+                case "!=": return !elementValue.Equals(filterValue, StringComparison.OrdinalIgnoreCase);
+                case "contains": return elementValue.IndexOf(filterValue, StringComparison.OrdinalIgnoreCase) >= 0;
+                case "startswith": return elementValue.StartsWith(filterValue, StringComparison.OrdinalIgnoreCase);
+                case "endswith": return elementValue.EndsWith(filterValue, StringComparison.OrdinalIgnoreCase);
+                default: return false;
+            }
+        }
+
+        /// <summary>
+        /// Evaluate boolean conditions
+        /// </summary>
+        private static bool EvaluateBooleanCondition(bool elementValue, string operatorType, bool filterValue)
+        {
+            switch (operatorType)
+            {
+                case "=":
+                case "==": return elementValue == filterValue;
+                case "!=": return elementValue != filterValue;
+                default: return false;
+            }
         }
 
         /// <summary>
@@ -407,8 +719,10 @@ namespace RevitMCPCommandSet.Services
                 // Maximum bounding box
                 BoundingBoxInfo boundingBoxInfo = new BoundingBoxInfo();
                 elementInfo.BoundingBox = GetBoundingBoxInfo(element);
-                // Parameters
-                //elementInfo.Parameters = GetDimensionParameters(element);
+                // Parameters - Extract comprehensive parameters using category-specific mapping
+                elementInfo.Parameters = ExtractElementParameters(element);
+                
+                // Add legacy parameters for compatibility
                 ParameterInfo thicknessParam = GetThicknessInfo(element);      // Thickness parameter
                 if (thicknessParam != null)
                 {
@@ -1090,6 +1404,110 @@ namespace RevitMCPCommandSet.Services
 #endif
         }
 
+        /// <summary>
+        /// Extract comprehensive element parameters using category-specific parameter mappings
+        /// </summary>
+        /// <param name="element">The Revit element</param>
+        /// <returns>List of parameter information</returns>
+        private static List<ParameterInfo> ExtractElementParameters(Element element)
+        {
+            var parameters = new List<ParameterInfo>();
+            
+            if (element?.Category == null)
+                return parameters;
+
+            try
+            {
+                // Get the built-in category
+                var builtInCategory = (BuiltInCategory)element.Category.Id.IntegerValue;
+                
+                // Check if we have specific mapping for this category
+                if (ParameterMappingManager.HasMapping(builtInCategory))
+                {
+                    // Get common parameter names for this category
+                    var commonParams = ParameterMappingManager.GetCommonParameterNames(builtInCategory);
+                    
+                    foreach (var paramName in commonParams)
+                    {
+                        var param = ParameterMappingManager.GetParameter(element, paramName, builtInCategory);
+                        if (param != null && param.HasValue)
+                        {
+                            var paramInfo = CreateParameterInfo(param, paramName);
+                            if (paramInfo != null)
+                            {
+                                parameters.Add(paramInfo);
+                            }
+                        }
+                    }
+                    
+                    // For structural framing, also extract additional important parameters
+                    if (builtInCategory == BuiltInCategory.OST_StructuralFraming)
+                    {
+                        // Extract additional structural parameters that might not be in common list
+                        var additionalParams = new[] { 
+                            "cut length", "volume", "section area", "nominal weight",
+                            "moment of inertia strong axis", "moment of inertia weak axis",
+                            "elastic modulus strong axis", "elastic modulus weak axis"
+                        };
+                        
+                        foreach (var paramName in additionalParams)
+                        {
+                            var param = ParameterMappingManager.GetParameter(element, paramName, builtInCategory);
+                            if (param != null && param.HasValue)
+                            {
+                                var paramInfo = CreateParameterInfo(param, paramName);
+                                if (paramInfo != null && !parameters.Any(p => p.Name.Equals(paramName, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    parameters.Add(paramInfo);
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // Fallback to basic parameter extraction for unmapped categories
+                    parameters = GetDimensionParameters(element);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"Error extracting parameters for element {element.Id}: {ex.Message}");
+                // Fallback to basic parameter extraction
+                parameters = GetDimensionParameters(element);
+            }
+            
+            return parameters ?? new List<ParameterInfo>();
+        }
+
+        /// <summary>
+        /// Create ParameterInfo from a Revit Parameter
+        /// </summary>
+        /// <param name="param">The Revit parameter</param>
+        /// <param name="displayName">Display name for the parameter</param>
+        /// <returns>ParameterInfo object</returns>
+        private static ParameterInfo CreateParameterInfo(Parameter param, string displayName)
+        {
+            if (param == null || !param.HasValue)
+                return null;
+
+            try
+            {
+                var paramInfo = new ParameterInfo
+                {
+                    Name = displayName,
+                    Value = param.AsValueString() ?? param.AsString() ?? param.AsDouble().ToString() ?? param.AsInteger().ToString()
+                };
+
+                return paramInfo;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"Error creating parameter info for {displayName}: {ex.Message}");
+                return null;
+            }
+        }
+
     }
 
     /// <summary>
@@ -1542,8 +1960,6 @@ namespace RevitMCPCommandSet.Services
         public string Name { get; set; }
         public double Height { get; set; }
     }
-
-
 
 }
 

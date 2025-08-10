@@ -39,6 +39,23 @@ namespace RevitMCPCommandSet.Commands
                 if (data == null)
                     throw new ArgumentNullException(nameof(data), "AI input data is empty");
 
+                // Check if there's a query or description we can use for natural language parsing
+                if (parameters.ContainsKey("query"))
+                {
+                    data.NaturalLanguageQuery = parameters["query"].ToString();
+                }
+                else if (parameters.ContainsKey("description"))
+                {
+                    data.NaturalLanguageQuery = parameters["description"].ToString();
+                }
+                else if (parameters.ContainsKey("prompt"))
+                {
+                    data.NaturalLanguageQuery = parameters["prompt"].ToString();
+                }
+
+                // Log the full request for debugging
+                System.Diagnostics.Trace.WriteLine($"Full MCP Request: {parameters.ToString()}");
+
                 // Set AI filter parameters
                 _handler.SetParameters(data);
 

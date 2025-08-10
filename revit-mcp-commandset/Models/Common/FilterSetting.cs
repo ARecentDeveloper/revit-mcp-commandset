@@ -8,6 +8,47 @@ using System.Threading.Tasks;
 namespace RevitMCPCommandSet.Models.Common
 {
     /// <summary>
+    /// Parameter-based filter for element filtering
+    /// </summary>
+    public class ParameterFilter
+    {
+        /// <summary>
+        /// Parameter name (supports aliases like 'l' for 'length', 'h' for 'height')
+        /// </summary>
+        [JsonProperty("name")]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Comparison operator: ">", "<", ">=", "<=", "=", "==", "!=", "contains", "startswith", "endswith"
+        /// </summary>
+        [JsonProperty("operator")]
+        public string Operator { get; set; }
+
+        /// <summary>
+        /// Filter value (will be converted using category-specific unit conversion)
+        /// </summary>
+        [JsonProperty("value")]
+        public object Value { get; set; }
+
+        /// <summary>
+        /// Value type hint for proper comparison (auto-detected if not specified)
+        /// </summary>
+        [JsonProperty("valueType")]
+        public ParameterValueType? ValueType { get; set; }
+    }
+
+    /// <summary>
+    /// Parameter value types for proper comparison
+    /// </summary>
+    public enum ParameterValueType
+    {
+        String,
+        Double,
+        Integer,
+        Boolean
+    }
+
+    /// <summary>
     /// Filter settings - supports combined condition filtering
     /// </summary>
     public class FilterSetting
@@ -63,7 +104,19 @@ namespace RevitMCPCommandSet.Models.Common
         /// Maximum element count limit
         /// </summary>
         [JsonProperty("maxElements")]
-        public int MaxElements { get; set; } = 50; 
+        public int MaxElements { get; set; } = 50;
+
+        /// <summary>
+        /// Gets or sets parameter-based filters for advanced element filtering
+        /// </summary>
+        [JsonProperty("parameterFilters")]
+        public List<ParameterFilter> ParameterFilters { get; set; } = new List<ParameterFilter>();
+
+        /// <summary>
+        /// Natural language query for intelligent parameter filtering
+        /// </summary>
+        [JsonProperty("naturalLanguageQuery")]
+        public string NaturalLanguageQuery { get; set; } 
         /// <summary>
         /// Validates the validity of filter settings and checks for potential conflicts
         /// </summary>
@@ -82,10 +135,50 @@ namespace RevitMCPCommandSet.Models.Common
             // Check if at least one filter condition is specified
             if (string.IsNullOrWhiteSpace(FilterCategory) &&
                 string.IsNullOrWhiteSpace(FilterElementType) &&
-                FilterFamilySymbolId <= 0)
+                FilterFamilySymbolId <= 0 &&
+                (ParameterFilters == null || ParameterFilters.Count == 0))
             {
-                errorMessage = "Filter settings invalid: Must specify at least one filter condition (category, element type, or family type)";
+                errorMessage = "Filter settings invalid: Must specify at least one filter condition (category, element type, family type, or parameter filters)";
                 return false;
+            }
+
+            // Validate parameter filters
+            if (ParameterFilters != null && ParameterFilters.Count > 0)
+            {
+                for (int i = 0; i < ParameterFilters.Count; i++)
+                {
+                    var paramFilter = ParameterFilters[i];
+                    if (string.IsNullOrWhiteSpace(paramFilter.Name))
+                    {
+                        errorMessage = $"Parameter filter {i + 1}: Parameter name cannot be empty";
+                        return false;
+                    }
+                    if (string.IsNullOrWhiteSpace(paramFilter.Operator))
+                    {
+                        errorMessage = $"Parameter filter {i + 1}: Operator cannot be empty";
+                        return false;
+                    }
+                    if (paramFilter.Value == null)
+                    {
+                        errorMessage = $"Parameter filter {i + 1}: Value cannot be null";
+                        return false;
+                    }
+
+                    // Validate operator
+                    var validOperators = new[] { ">", "<", ">=", "<=", "=", "==", "!=", "contains", "startswith", "endswith" };
+                    if (!validOperators.Contains(paramFilter.Operator.ToLower()))
+                    {
+                        errorMessage = $"Parameter filter {i + 1}: Invalid operator '{paramFilter.Operator}'. Valid operators: {string.Join(", ", validOperators)}";
+                        return false;
+                    }
+                }
+
+                // Parameter filters require a category for proper parameter mapping
+                if (string.IsNullOrWhiteSpace(FilterCategory))
+                {
+                    errorMessage = "Parameter filters require a category to be specified for proper parameter mapping";
+                    return false;
+                }
             }
 
             // Check for conflicts between type elements and certain filters
