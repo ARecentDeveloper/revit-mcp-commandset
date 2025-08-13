@@ -51,6 +51,10 @@ namespace RevitMCPCommandSet.Utils
             { "structural framing", BuiltInCategory.OST_StructuralFraming },
             { "OST_StructuralFraming", BuiltInCategory.OST_StructuralFraming },
             
+            { "levels", BuiltInCategory.OST_Levels },
+            { "level", BuiltInCategory.OST_Levels },
+            { "OST_Levels", BuiltInCategory.OST_Levels },
+            
             // MEP - Electrical
             { "conduits", BuiltInCategory.OST_Conduit },
             { "conduit", BuiltInCategory.OST_Conduit },

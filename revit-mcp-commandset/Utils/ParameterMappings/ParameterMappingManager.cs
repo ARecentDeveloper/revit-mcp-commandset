@@ -16,7 +16,8 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
             // Start with basic working mappings
             { BuiltInCategory.OST_Walls, new WallParameterMapping() },
             { BuiltInCategory.OST_Conduit, new ConduitParameterMapping() },
-            { BuiltInCategory.OST_StructuralFraming, new StructuralFramingParameterMapping() }
+            { BuiltInCategory.OST_StructuralFraming, new StructuralFramingParameterMapping() },
+            { BuiltInCategory.OST_Levels, new LevelParameterMapping() }
         };
 
         /// <summary>
