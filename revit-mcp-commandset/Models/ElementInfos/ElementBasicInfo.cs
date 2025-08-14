@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace RevitMCPCommandSet.Models.ElementInfos
 {
     /// <summary>
@@ -34,5 +36,10 @@ namespace RevitMCPCommandSet.Models.ElementInfos
         /// BoundingBoxInfo
         /// </summary>
         public BoundingBoxInfo BoundingBox { get; set; }
+
+        /// <summary>
+        /// Parameter information list
+        /// </summary>
+        public List<ParameterInfo> Parameters { get; set; } = new List<ParameterInfo>();
     }
 } 

@@ -116,7 +116,20 @@ namespace RevitMCPCommandSet.Models.Common
         /// Natural language query for intelligent parameter filtering
         /// </summary>
         [JsonProperty("naturalLanguageQuery")]
-        public string NaturalLanguageQuery { get; set; } 
+        public string NaturalLanguageQuery { get; set; }
+
+        /// <summary>
+        /// Specific parameters to include in the response (for selective extraction)
+        /// If null or empty, basic parameters are returned. If "all", all common parameters are returned.
+        /// </summary>
+        [JsonProperty("requestedParameters")]
+        public List<string> RequestedParameters { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Response detail level: "basic" (minimal info), "standard" (common parameters), "detailed" (all available parameters)
+        /// </summary>
+        [JsonProperty("detailLevel")]
+        public string DetailLevel { get; set; } = "basic"; 
         /// <summary>
         /// Validates the validity of filter settings and checks for potential conflicts
         /// </summary>
@@ -165,7 +178,13 @@ namespace RevitMCPCommandSet.Models.Common
                     }
 
                     // Validate operator
-                    var validOperators = new[] { ">", "<", ">=", "<=", "=", "==", "!=", "contains", "startswith", "endswith" };
+                    var validOperators = new[]
+                    {
+                        ">", "<", ">=", "<=", "=", "==", "!=",
+                        // Word forms for convenience
+                        "greater", "less", "greaterequal", "greaterEqual", "lessequal", "lessEqual", "equals", "notequals", "notEquals",
+                        "contains", "startswith", "endswith"
+                    };
                     if (!validOperators.Contains(paramFilter.Operator.ToLower()))
                     {
                         errorMessage = $"Parameter filter {i + 1}: Invalid operator '{paramFilter.Operator}'. Valid operators: {string.Join(", ", validOperators)}";

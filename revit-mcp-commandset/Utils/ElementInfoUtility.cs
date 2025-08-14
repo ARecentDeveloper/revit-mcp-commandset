@@ -3,6 +3,8 @@ using Autodesk.Revit.DB.Architecture;
 using RevitMCPCommandSet.Models.Common;
 using RevitMCPCommandSet.Models.ElementInfos;
 using System;
+using System.Collections.Generic;
+using RevitMCPCommandSet.Utils.ParameterMappings;
 
 namespace RevitMCPCommandSet.Utils
 {
@@ -194,6 +196,240 @@ namespace RevitMCPCommandSet.Utils
                 };
             }
             return null;
+        }
+
+        /// <summary>
+        /// Retrieve basic parameters for an element (minimal set for general info)
+        /// </summary>
+        public static List<ParameterInfo> GetBasicParameters(Element element)
+        {
+            var list = new List<ParameterInfo>();
+            if (element?.Category == null) 
+            {
+                System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Element or category is null");
+                return list;
+            }
+
+            try
+            {
+                var bic = (BuiltInCategory)element.Category.Id.IntegerValue;
+                System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Element {element.Id.IntegerValue} ({element.Name}), Category: {bic}");
+                
+                if (!ParameterMappingManager.HasMapping(bic)) 
+                {
+                    System.Diagnostics.Trace.WriteLine($"GetBasicParameters: No mapping found for category {bic}");
+                    return list;
+                }
+
+                // Basic parameters that are always useful
+                var basicParams = new List<string> { "length", "height", "width", "mark", "level", "reference level" };
+                System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Looking for basic parameters: {string.Join(", ", basicParams)}");
+                
+                foreach (var name in basicParams)
+                {
+                    System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Looking for parameter '{name}'");
+                    var param = ParameterMappingManager.GetParameter(element, name, bic);
+                    
+                    if (param == null)
+                    {
+                        System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Parameter '{name}' not found");
+                        continue;
+                    }
+                    
+                    if (!param.HasValue)
+                    {
+                        System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Parameter '{name}' has no value");
+                        continue;
+                    }
+
+                    var valStr = GetParameterDisplayValue(param);
+                    System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Parameter '{name}' value: '{valStr}'");
+                    
+                    if (!string.IsNullOrWhiteSpace(valStr))
+                    {
+                        list.Add(new ParameterInfo { Name = name, Value = valStr });
+                        System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Added parameter '{name}' = '{valStr}'");
+                    }
+                }
+                
+                System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Returning {list.Count} parameters");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Error - {ex.Message}");
+            }
+
+            return list;
+        }
+
+        /// <summary>
+        /// Retrieve specific parameters for an element based on requested parameter names
+        /// </summary>
+        public static List<ParameterInfo> GetSpecificParameters(Element element, List<string> parameterNames)
+        {
+            var list = new List<ParameterInfo>();
+            if (element?.Category == null || parameterNames == null || !parameterNames.Any()) 
+            {
+                System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Early return - element category: {element?.Category?.Name}, parameterNames count: {parameterNames?.Count}");
+                return list;
+            }
+
+            try
+            {
+                var bic = (BuiltInCategory)element.Category.Id.IntegerValue;
+                System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Element {element.Id.IntegerValue} ({element.Name}), Category: {bic}");
+                
+                if (!ParameterMappingManager.HasMapping(bic)) 
+                {
+                    System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: No mapping found for category {bic}");
+                    return list;
+                }
+
+                System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Requesting parameters: {string.Join(", ", parameterNames)}");
+
+                // DIAGNOSTIC: Try to get ANY parameter from this element to see if the issue is element-specific
+                System.Diagnostics.Trace.WriteLine($"DIAGNOSTIC: Checking if element has ANY parameters...");
+                var allParams = element.Parameters;
+                System.Diagnostics.Trace.WriteLine($"DIAGNOSTIC: Element has {allParams.Size} total parameters");
+                
+                // List first 10 parameters for debugging
+                int count = 0;
+                foreach (Parameter p in allParams)
+                {
+                    if (count >= 10) break;
+                    try
+                    {
+                        string paramName = p.Definition?.Name ?? "Unknown";
+                        string paramValue = p.HasValue ? (p.AsValueString() ?? p.AsString() ?? p.AsDouble().ToString()) : "No Value";
+                        System.Diagnostics.Trace.WriteLine($"DIAGNOSTIC: Parameter[{count}]: '{paramName}' = '{paramValue}'");
+                        count++;
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Trace.WriteLine($"DIAGNOSTIC: Error reading parameter[{count}]: {ex.Message}");
+                        count++;
+                    }
+                }
+
+                foreach (var name in parameterNames)
+                {
+                    System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Looking for parameter '{name}'");
+                    var param = ParameterMappingManager.GetParameter(element, name, bic);
+                    
+                    if (param == null)
+                    {
+                        System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Parameter '{name}' not found");
+                        continue;
+                    }
+                    
+                    if (!param.HasValue)
+                    {
+                        System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Parameter '{name}' has no value");
+                        continue;
+                    }
+
+                    var valStr = GetParameterDisplayValue(param);
+                    System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Parameter '{name}' value: '{valStr}'");
+                    
+                    if (!string.IsNullOrWhiteSpace(valStr))
+                    {
+                        list.Add(new ParameterInfo { Name = name, Value = valStr });
+                        System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Added parameter '{name}' = '{valStr}'");
+                    }
+                }
+                
+                // DIAGNOSTIC: Try direct parameter lookup as fallback test
+                if (list.Count == 0)
+                {
+                    System.Diagnostics.Trace.WriteLine($"DIAGNOSTIC: No parameters found via mapping, trying direct lookup...");
+                    foreach (var name in parameterNames)
+                    {
+                        try
+                        {
+                            var directParam = element.LookupParameter(name);
+                            if (directParam != null && directParam.HasValue)
+                            {
+                                var directValue = GetParameterDisplayValue(directParam);
+                                if (!string.IsNullOrWhiteSpace(directValue))
+                                {
+                                    list.Add(new ParameterInfo { Name = name, Value = directValue });
+                                    System.Diagnostics.Trace.WriteLine($"DIAGNOSTIC: Found via direct lookup: '{name}' = '{directValue}'");
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Trace.WriteLine($"DIAGNOSTIC: Direct lookup failed for '{name}': {ex.Message}");
+                        }
+                    }
+                }
+
+                System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Returning {list.Count} parameters");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Error - {ex.Message}");
+            }
+
+            return list;
+        }
+
+        /// <summary>
+        /// Retrieve a set of parameters for an element based on its category-specific mapping.
+        /// Only parameters that have a non-empty display value are returned.
+        /// </summary>
+        public static List<ParameterInfo> GetMappedParameters(Element element)
+        {
+            var list = new List<ParameterInfo>();
+            if (element?.Category == null) return list;
+
+            try
+            {
+                var bic = (BuiltInCategory)element.Category.Id.IntegerValue;
+                if (!ParameterMappingManager.HasMapping(bic)) return list;
+
+                var names = ParameterMappingManager.GetCommonParameterNames(bic);
+                if (names == null || names.Count == 0) return list;
+
+                foreach (var name in names)
+                {
+                    var param = ParameterMappingManager.GetParameter(element, name, bic);
+                    if (param == null || !param.HasValue) continue;
+
+                    var valStr = GetParameterDisplayValue(param);
+                    if (!string.IsNullOrWhiteSpace(valStr))
+                    {
+                        list.Add(new ParameterInfo { Name = name, Value = valStr });
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore mapping errors
+            }
+
+            return list;
+        }
+
+        /// <summary>
+        /// Helper method to get parameter display value consistently
+        /// </summary>
+        private static string GetParameterDisplayValue(Parameter param)
+        {
+            var valStr = param.AsValueString() ?? param.AsString();
+            if (string.IsNullOrWhiteSpace(valStr))
+            {
+                // Try numeric value for doubles
+                if (param.StorageType == StorageType.Double)
+                {
+                    valStr = param.AsDouble().ToString();
+                }
+                else if (param.StorageType == StorageType.Integer)
+                {
+                    valStr = param.AsInteger().ToString();
+                }
+            }
+            return valStr;
         }
     }
 } 

@@ -25,15 +25,37 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
         /// </summary>
         public static Parameter GetParameter(Element element, string parameterName, BuiltInCategory category)
         {
+            System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Looking for '{parameterName}' on element {element.Id.IntegerValue} in category {category}");
+            
             // Try category-specific mapping first
             if (Mappings.TryGetValue(category, out var mapping))
             {
+                System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Found mapping for {category}");
                 var param = mapping.GetParameter(element, parameterName);
-                if (param != null) return param;
+                if (param != null) 
+                {
+                    System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Found parameter '{parameterName}' via mapping");
+                    return param;
+                }
+                System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Parameter '{parameterName}' not found via mapping");
+            }
+            else
+            {
+                System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: No mapping found for category {category}");
             }
 
             // Fallback to generic parameter lookup
-            return GetParameterGeneric(element, parameterName);
+            System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Trying generic lookup for '{parameterName}'");
+            var genericParam = GetParameterGeneric(element, parameterName);
+            if (genericParam != null)
+            {
+                System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Found parameter '{parameterName}' via generic lookup");
+            }
+            else
+            {
+                System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Parameter '{parameterName}' not found anywhere");
+            }
+            return genericParam;
         }
 
         /// <summary>
@@ -103,6 +125,15 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
             // Try type parameter
             ElementType elementType = element.Document.GetElement(element.GetTypeId()) as ElementType;
             return elementType?.LookupParameter(parameterName);
+        }
+
+        /// <summary>
+        /// Get the parameter mapping for a specific category
+        /// </summary>
+        public static ParameterMappingBase GetMapping(BuiltInCategory category)
+        {
+            Mappings.TryGetValue(category, out var mapping);
+            return mapping; // Returns null if not found
         }
 
         /// <summary>

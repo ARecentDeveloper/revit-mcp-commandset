@@ -63,11 +63,16 @@ namespace RevitMCPCommandSet.Services
                     }
                 }
 
-                // Get information of the specified Id element using the factory registry
+                // Get information of the specified Id element using the factory registry with selective extraction
                 var registry = ElementInfoFactoryRegistry.Instance;
+                
+                // Determine what parameters to extract based on the filter settings
+                var requestedParameters = GetRequestedParameters(FilterSetting);
+                var detailLevel = FilterSetting.DetailLevel ?? "basic";
+                
                 foreach (var element in elementList)
                 {
-                    var info = registry.CreateInfo(doc, element);
+                    var info = registry.CreateInfo(doc, element, detailLevel, requestedParameters);
                     if (info != null)
                     {
                         elementInfoList.Add(info);
@@ -103,6 +108,34 @@ namespace RevitMCPCommandSet.Services
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
             return _resetEvent.WaitOne(timeoutMilliseconds);
+        }
+
+        /// <summary>
+        /// Determine what parameters to extract based on filter settings
+        /// </summary>
+        private List<string> GetRequestedParameters(FilterSetting filterSetting)
+        {
+            var requestedParams = new List<string>();
+            
+            // Add explicitly requested parameters
+            if (filterSetting.RequestedParameters != null && filterSetting.RequestedParameters.Any())
+            {
+                requestedParams.AddRange(filterSetting.RequestedParameters);
+            }
+            
+            // Add parameters that are being filtered on (so they appear in results)
+            if (filterSetting.ParameterFilters != null && filterSetting.ParameterFilters.Any())
+            {
+                foreach (var paramFilter in filterSetting.ParameterFilters)
+                {
+                    if (!string.IsNullOrWhiteSpace(paramFilter.Name) && !requestedParams.Contains(paramFilter.Name, StringComparer.OrdinalIgnoreCase))
+                    {
+                        requestedParams.Add(paramFilter.Name);
+                    }
+                }
+            }
+            
+            return requestedParams.Any() ? requestedParams : null;
         }
 
         /// <summary>

@@ -2,6 +2,7 @@ using Autodesk.Revit.DB;
 using RevitMCPCommandSet.Models.ElementInfos;
 using RevitMCPCommandSet.Utils;
 using System;
+using System.Collections.Generic;
 
 namespace RevitMCPCommandSet.Services.ElementInfoFactories
 {
@@ -16,6 +17,11 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
         }
 
         public object CreateInfo(Document doc, Element element)
+        {
+            return CreateInfo(doc, element, "basic", null);
+        }
+
+        public object CreateInfo(Document doc, Element element, string detailLevel, List<string> requestedParameters)
         {
             try
             {
@@ -38,7 +44,7 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
                 {
                     typeInfo.BuiltInCategory = Enum.GetName(typeof(BuiltInCategory), elementType.Category.Id.IntegerValue);
                 }
-                // Parameter dictionary
+                // Parameter dictionary - for type elements, we typically want more detail
                 typeInfo.Parameters = ParameterUtility.GetDimensionParameters(elementType);
                 ParameterInfo thicknessParam = ElementInfoUtility.GetThicknessInfo(element);      //Thickness parameter
                 if (thicknessParam != null)

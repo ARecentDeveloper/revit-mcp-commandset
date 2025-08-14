@@ -1,5 +1,6 @@
 using Autodesk.Revit.DB;
 using RevitMCPCommandSet.Models.Common;
+using RevitMCPCommandSet.Utils.ParameterMappings;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -169,6 +170,50 @@ namespace RevitMCPCommandSet.Services.Filtering
                 appliedFilters.Add($"Spatial filter: Min({settings.BoundingBoxMin.X:F2}, {settings.BoundingBoxMin.Y:F2}, {settings.BoundingBoxMin.Z:F2}), " +
                                   $"Max({settings.BoundingBoxMax.X:F2}, {settings.BoundingBoxMax.Y:F2}, {settings.BoundingBoxMax.Z:F2}) mm");
             }
+            
+            // 5. Parameter-based filters
+            if (settings.ParameterFilters != null && settings.ParameterFilters.Count > 0)
+            {
+                // Get the appropriate parameter mapping for the category
+                BuiltInCategory? categoryEnum = null;
+                if (!string.IsNullOrWhiteSpace(settings.FilterCategory))
+                {
+                    if (Enum.TryParse(settings.FilterCategory, true, out BuiltInCategory category))
+                    {
+                        categoryEnum = category;
+                    }
+                }
+                
+                foreach (var paramFilter in settings.ParameterFilters)
+                {
+                    try
+                    {
+                        // Special handling for ElementId filtering
+                        if (string.Equals(paramFilter.Name, "ElementId", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var elementIdFilter = CreateElementIdFilter(paramFilter);
+                            if (elementIdFilter != null)
+                            {
+                                filters.Add(elementIdFilter);
+                                appliedFilters.Add($"ElementId filter: {paramFilter.Operator} {paramFilter.Value}");
+                            }
+                        }
+                        else
+                        {
+                            var elementFilter = CreateParameterFilter(doc, paramFilter, categoryEnum, isElementType);
+                            if (elementFilter != null)
+                            {
+                                filters.Add(elementFilter);
+                                appliedFilters.Add($"Parameter filter: {paramFilter.Name} {paramFilter.Operator} {paramFilter.Value}");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Trace.WriteLine($"Warning: Failed to create parameter filter for '{paramFilter.Name}': {ex.Message}");
+                    }
+                }
+            }
             // Apply combined filter
             if (filters.Count > 0)
             {
@@ -182,6 +227,273 @@ namespace RevitMCPCommandSet.Services.Filtering
                 }
             }
             return collector.ToElements().ToList();
+        }
+
+        /// <summary>
+        /// Create a parameter-based element filter using the parameter mapping system
+        /// </summary>
+        private static ElementFilter CreateParameterFilter(Document doc, ParameterFilter paramFilter, BuiltInCategory? category, bool isElementType)
+        {
+            try
+            {
+                // Get the appropriate parameter mapping for the category
+                ParameterMappingBase mapping = null;
+                if (category.HasValue)
+                {
+                    mapping = ParameterMappingManager.GetMapping(category.Value);
+                }
+
+                // Find the parameter using the mapping system
+                Parameter param = null;
+                BuiltInParameter? builtInParam = null;
+                
+                if (mapping != null)
+                {
+                    // Create a temporary element to use for parameter resolution
+                    // This is a bit of a hack, but necessary for the mapping system
+                    var tempCollector = new FilteredElementCollector(doc);
+                    if (isElementType)
+                    {
+                        tempCollector = tempCollector.WhereElementIsElementType();
+                    }
+                    else
+                    {
+                        tempCollector = tempCollector.WhereElementIsNotElementType();
+                    }
+                    
+                    var sampleElement = tempCollector.FirstOrDefault();
+                    if (sampleElement != null)
+                    {
+                        param = mapping.GetParameter(sampleElement, paramFilter.Name);
+                    }
+                }
+                
+                // If mapping didn't work, try direct parameter lookup
+                if (param == null)
+                {
+                    // Try to find by BuiltInParameter enum
+                    if (Enum.TryParse<BuiltInParameter>(paramFilter.Name, true, out var directBuiltIn))
+                    {
+                        builtInParam = directBuiltIn;
+                    }
+                }
+                else
+                {
+                    // Get the BuiltInParameter from the found parameter
+                    if (param.Definition is InternalDefinition internalDef)
+                    {
+                        builtInParam = internalDef.BuiltInParameter;
+                    }
+                }
+
+                if (!builtInParam.HasValue)
+                {
+                    System.Diagnostics.Trace.WriteLine($"Warning: Could not resolve parameter '{paramFilter.Name}' for filtering");
+                    return null;
+                }
+
+                // Convert the filter value using the mapping if available
+                object convertedValue = paramFilter.Value;
+                if (mapping != null)
+                {
+                    convertedValue = mapping.ConvertValue(paramFilter.Name, paramFilter.Value);
+                }
+
+                // Create the appropriate filter based on the operator
+                return CreateRevitParameterFilter(builtInParam.Value, paramFilter.Operator, convertedValue);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"Error creating parameter filter for '{paramFilter.Name}': {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Create a Revit parameter filter based on the operator and value
+        /// </summary>
+        private static ElementFilter CreateRevitParameterFilter(BuiltInParameter builtInParam, string operatorStr, object value)
+        {
+            try
+            {
+                // Handle different value types
+                if (value is string stringValue)
+                {
+                    return CreateStringParameterFilter(builtInParam, operatorStr, stringValue);
+                }
+                else if (value is double doubleValue)
+                {
+                    return CreateNumericParameterFilter(builtInParam, operatorStr, doubleValue);
+                }
+                else if (value is int intValue)
+                {
+                    return CreateNumericParameterFilter(builtInParam, operatorStr, (double)intValue);
+                }
+                else if (value is bool boolValue)
+                {
+                    return CreateNumericParameterFilter(builtInParam, operatorStr, boolValue ? 1.0 : 0.0);
+                }
+                else
+                {
+                    // Try to convert to string as fallback
+                    return CreateStringParameterFilter(builtInParam, operatorStr, value?.ToString() ?? "");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"Error creating Revit parameter filter: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Create a string-based parameter filter
+        /// </summary>
+        private static ElementFilter CreateStringParameterFilter(BuiltInParameter builtInParam, string operatorStr, string value)
+        {
+            try
+            {
+                var provider = new ParameterValueProvider(new ElementId(builtInParam));
+                var evaluator = GetStringEvaluator(operatorStr);
+                if (evaluator == null)
+                    throw new ArgumentException($"Unsupported string operator: {operatorStr}");
+
+                var rule = new FilterStringRule(provider, evaluator, value);
+                var filter = new ElementParameterFilter(rule);
+
+                return filter;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"Error creating string parameter filter: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Create a numeric parameter filter
+        /// </summary>
+        private static ElementFilter CreateNumericParameterFilter(BuiltInParameter builtInParam, string operatorStr, double value)
+        {
+            try
+            {
+                var provider = new ParameterValueProvider(new ElementId(builtInParam));
+                var evaluator = GetNumericEvaluator(operatorStr);
+                if (evaluator == null)
+                    throw new ArgumentException($"Unsupported numeric operator: {operatorStr}");
+
+                var rule = new FilterDoubleRule(provider, evaluator, value, 1e-9);
+                var filter = new ElementParameterFilter(rule);
+
+                return filter;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"Error creating numeric parameter filter: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get string evaluator for the given operator
+        /// </summary>
+        private static FilterStringRuleEvaluator GetStringEvaluator(string operatorStr)
+        {
+            switch (operatorStr.ToLower())
+            {
+                case "equals":
+                case "=":
+                case "==":
+                    return new FilterStringEquals();
+                
+                // Note: "notequals" and "!=" are not currently supported
+                
+                case "contains":
+                    return new FilterStringContains();
+                
+                case "startswith":
+                    return new FilterStringBeginsWith();
+                
+                case "endswith":
+                    return new FilterStringEndsWith();
+                
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// Get numeric evaluator for the given operator
+        /// </summary>
+        private static FilterNumericRuleEvaluator GetNumericEvaluator(string operatorStr)
+        {
+            switch (operatorStr.ToLower())
+            {
+                case "equals":
+                case "=":
+                case "==":
+                    return new FilterNumericEquals();
+                
+                // Note: "notequals" and "!=" are not currently supported
+                
+                case "greater":
+                case ">":
+                    return new FilterNumericGreater();
+                
+                case "greaterequal":
+                case "greaterequals":
+                case ">=":
+                    return new FilterNumericGreaterOrEqual();
+                
+                case "less":
+                case "<":
+                    return new FilterNumericLess();
+                
+                case "lessequal":
+                case "lessequals":
+                case "<=":
+                    return new FilterNumericLessOrEqual();
+                
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// Create an ElementId-based filter for filtering by element ID
+        /// </summary>
+        private static ElementFilter CreateElementIdFilter(ParameterFilter paramFilter)
+        {
+            try
+            {
+                // Parse the element ID value
+                if (!int.TryParse(paramFilter.Value?.ToString(), out int elementIdValue))
+                {
+                    System.Diagnostics.Trace.WriteLine($"Warning: Could not parse ElementId value '{paramFilter.Value}' as integer");
+                    return null;
+                }
+
+                var elementId = new ElementId(elementIdValue);
+                var elementIds = new List<ElementId> { elementId };
+
+                // For ElementId filtering, we typically only support "equals" operation
+                switch (paramFilter.Operator.ToLower())
+                {
+                    case "equals":
+                    case "=":
+                    case "==":
+                        return new ElementIdSetFilter(elementIds);
+                    
+                    default:
+                        System.Diagnostics.Trace.WriteLine($"Warning: ElementId filtering only supports 'equals' operator, got '{paramFilter.Operator}'");
+                        return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"Error creating ElementId filter: {ex.Message}");
+                return null;
+            }
         }
     }
 } 

@@ -1,4 +1,5 @@
 using Autodesk.Revit.DB;
+using System.Collections.Generic;
 
 namespace RevitMCPCommandSet.Services.ElementInfoFactories
 {
@@ -16,5 +17,10 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
         /// Creates the appropriate info object for the element
         /// </summary>
         object CreateInfo(Document doc, Element element);
+
+        /// <summary>
+        /// Creates the appropriate info object for the element with selective parameter extraction
+        /// </summary>
+        object CreateInfo(Document doc, Element element, string detailLevel, List<string> requestedParameters);
     }
 } 

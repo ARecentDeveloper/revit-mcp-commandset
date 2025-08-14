@@ -192,30 +192,63 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
         };     
    protected override Parameter GetCategorySpecificParameter(Element element, string parameterName)
         {
+            System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping.GetCategorySpecificParameter: Looking for '{parameterName}' on element {element.Id.IntegerValue}");
+            
             // Check aliases first
             string actualParamName = _aliases.ContainsKey(parameterName) ? _aliases[parameterName] : parameterName;
+            if (actualParamName != parameterName)
+            {
+                System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping: Resolved alias '{parameterName}' to '{actualParamName}'");
+            }
             
             // Try instance parameter mapping first
             if (_parameterMappings.TryGetValue(actualParamName, out var builtInParam))
             {
+                System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping: Found instance mapping for '{actualParamName}' -> {builtInParam}");
                 var param = GetBuiltInParameter(element, builtInParam);
-                if (param != null) return param;
+                if (param != null) 
+                {
+                    System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping: Found instance parameter '{actualParamName}'");
+                    return param;
+                }
+                System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping: Instance parameter '{actualParamName}' not found on element");
             }
             
             // Try type parameter mapping
             if (_typeParameterMappings.TryGetValue(actualParamName, out var typeBuiltInParam))
             {
+                System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping: Found type mapping for '{actualParamName}' -> {typeBuiltInParam}");
                 var param = GetBuiltInParameterFromType(element, typeBuiltInParam);
-                if (param != null) return param;
+                if (param != null) 
+                {
+                    System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping: Found type parameter '{actualParamName}'");
+                    return param;
+                }
+                System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping: Type parameter '{actualParamName}' not found on element type");
             }
 
             // Fallback to generic lookup
+            System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping: Trying generic lookup for '{actualParamName}'");
             var genericParam = element.LookupParameter(actualParamName);
-            if (genericParam != null) return genericParam;
+            if (genericParam != null) 
+            {
+                System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping: Found generic parameter '{actualParamName}'");
+                return genericParam;
+            }
 
             // Try type parameter
+            System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping: Trying type generic lookup for '{actualParamName}'");
             ElementType elementType = element.Document.GetElement(element.GetTypeId()) as ElementType;
-            return elementType?.LookupParameter(actualParamName);
+            var typeParam = elementType?.LookupParameter(actualParamName);
+            if (typeParam != null)
+            {
+                System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping: Found type generic parameter '{actualParamName}'");
+            }
+            else
+            {
+                System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping: Parameter '{actualParamName}' not found anywhere");
+            }
+            return typeParam;
         }
 
         public override object ConvertValue(string parameterName, object inputValue)
@@ -374,7 +407,7 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
                 "start level offset", "end level offset", "elevation at top", "elevation at bottom",
                 "cross-section rotation", "y justification", "z justification",
                 "section area", "moment of inertia strong axis", "moment of inertia weak axis",
-                "nominal weight", "flange thickness", "web thickness"
+                "nominal weight", "flange thickness", "web thickness", "number of studs"
             };
         }
 

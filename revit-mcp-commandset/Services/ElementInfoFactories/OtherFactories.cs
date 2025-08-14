@@ -19,6 +19,11 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
 
         public object CreateInfo(Document doc, Element element)
         {
+            return CreateInfo(doc, element, "basic", null);
+        }
+
+        public object CreateInfo(Document doc, Element element, string detailLevel, List<string> requestedParameters)
+        {
             try
             {
                 if (element == null)
@@ -83,6 +88,11 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
         }
 
         public object CreateInfo(Document doc, Element element)
+        {
+            return CreateInfo(doc, element, "basic", null);
+        }
+
+        public object CreateInfo(Document doc, Element element, string detailLevel, List<string> requestedParameters)
         {
             try
             {
@@ -170,6 +180,11 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
 
         public object CreateInfo(Document doc, Element element)
         {
+            return CreateInfo(doc, element, "basic", null);
+        }
+
+        public object CreateInfo(Document doc, Element element, string detailLevel, List<string> requestedParameters)
+        {
             try
             {
                 if (element == null)
@@ -250,6 +265,11 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
 
         public object CreateInfo(Document doc, Element element)
         {
+            return CreateInfo(doc, element, "basic", null);
+        }
+
+        public object CreateInfo(Document doc, Element element, string detailLevel, List<string> requestedParameters)
+        {
             try
             {
                 if (element == null)
@@ -265,6 +285,36 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
                         Enum.GetName(typeof(BuiltInCategory), element.Category.Id.IntegerValue) : null,
                     BoundingBox = ElementInfoUtility.GetBoundingBoxInfo(element)
                 };
+
+                // Add parameter extraction for fallback factory too!
+                List<ParameterInfo> parameters = new List<ParameterInfo>();
+                
+                if (requestedParameters != null && requestedParameters.Any())
+                {
+                    // Extract specific requested parameters
+                    parameters = ElementInfoUtility.GetSpecificParameters(element, requestedParameters);
+                }
+                else
+                {
+                    // Extract based on detail level
+                    switch (detailLevel?.ToLower())
+                    {
+                        case "detailed":
+                        case "all":
+                            parameters = ElementInfoUtility.GetMappedParameters(element);
+                            break;
+                        case "standard":
+                            parameters = ElementInfoUtility.GetMappedParameters(element);
+                            break;
+                        case "basic":
+                        default:
+                            parameters = ElementInfoUtility.GetBasicParameters(element);
+                            break;
+                    }
+                }
+                
+                basicInfo.Parameters.AddRange(parameters);
+                
                 return basicInfo;
             }
             catch (Exception ex)

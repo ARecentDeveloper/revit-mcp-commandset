@@ -83,5 +83,18 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
             }
             return null;
         }
+
+        /// <summary>
+        /// Create info for an element using the appropriate factory with selective parameter extraction
+        /// </summary>
+        public object CreateInfo(Document doc, Element element, string detailLevel, List<string> requestedParameters)
+        {
+            var factory = GetFactory(element);
+            if (factory != null)
+            {
+                return factory.CreateInfo(doc, element, detailLevel, requestedParameters);
+            }
+            return null;
+        }
     }
 } 

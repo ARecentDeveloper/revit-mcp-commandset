@@ -3,6 +3,7 @@ using Autodesk.Revit.DB.Architecture;
 using RevitMCPCommandSet.Models.ElementInfos;
 using RevitMCPCommandSet.Utils;
 using System;
+using System.Collections.Generic;
 
 namespace RevitMCPCommandSet.Services.ElementInfoFactories
 {
@@ -17,6 +18,11 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
         }
 
         public object CreateInfo(Document doc, Element element)
+        {
+            return CreateInfo(doc, element, "basic", null);
+        }
+
+        public object CreateInfo(Document doc, Element element, string detailLevel, List<string> requestedParameters)
         {
             try
             {
