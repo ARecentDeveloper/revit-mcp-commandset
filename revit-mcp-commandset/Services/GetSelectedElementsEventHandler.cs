@@ -52,7 +52,7 @@ namespace RevitMCPCommandSet.Services
 #else
                     Id = element.Id.IntegerValue,
 #endif
-                    UniqueId = element.UniqueId,
+                    // UniqueId = element.UniqueId,
                     Name = element.Name,
                     Category = element.Category?.Name
                 }).ToList();

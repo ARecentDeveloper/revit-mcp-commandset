@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace RevitMCPCommandSet.Models.ElementInfos
 {
@@ -16,6 +17,7 @@ namespace RevitMCPCommandSet.Models.ElementInfos
         /// <summary>
         /// Element name - essential for user recognition
         /// </summary>
+        [JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
         public string Name { get; set; }
         
         /// <summary>

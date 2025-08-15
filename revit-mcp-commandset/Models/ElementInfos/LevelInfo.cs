@@ -1,3 +1,5 @@
+using Newtonsoft.Json;
+
 namespace RevitMCPCommandSet.Models.ElementInfos
 {
     /// <summary>
@@ -6,6 +8,7 @@ namespace RevitMCPCommandSet.Models.ElementInfos
     public class LevelInfo
     {
         public int Id { get; set; }
+        [JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
         public string Name { get; set; }
         public double Height { get; set; }
     }
