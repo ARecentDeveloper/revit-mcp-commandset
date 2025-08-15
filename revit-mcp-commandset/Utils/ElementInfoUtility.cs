@@ -233,22 +233,22 @@ namespace RevitMCPCommandSet.Utils
                     if (param == null)
                     {
                         System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Parameter '{name}' not found");
-                        continue;
-                    }
-                    
-                    if (!param.HasValue)
-                    {
-                        System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Parameter '{name}' has no value");
-                        continue;
+                        continue; // For basic parameters, skip missing ones
                     }
 
-                    var valStr = GetParameterDisplayValue(param);
-                    System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Parameter '{name}' value: '{valStr}'");
+                    // Create enhanced parameter info (handles empty values properly)
+                    var paramInfo = CreateParameterInfo(param, name);
                     
-                    if (!string.IsNullOrWhiteSpace(valStr))
+                    // For basic parameters, only include non-empty ones to keep response clean
+                    if (string.IsNullOrEmpty(paramInfo.EmptyReason))
                     {
-                        list.Add(new ParameterInfo { Name = name, Value = valStr });
-                        System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Added parameter '{name}' = '{valStr}'");
+                        list.Add(paramInfo);
+                        System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Added parameter '{name}' = '{paramInfo.Value}'" + 
+                            (paramInfo.RawValue.HasValue ? $" (raw: {paramInfo.RawValue})" : ""));
+                    }
+                    else
+                    {
+                        System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Parameter '{name}' is empty: {paramInfo.EmptyReason}");
                     }
                 }
                 
@@ -313,28 +313,40 @@ namespace RevitMCPCommandSet.Utils
 
                 foreach (var name in parameterNames)
                 {
+                    // Skip ElementId - it's used for filtering, not as a parameter to extract
+                    if (string.Equals(name, "ElementId", StringComparison.OrdinalIgnoreCase))
+                    {
+                        System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Skipping ElementId - not a parameter");
+                        continue;
+                    }
+
                     System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Looking for parameter '{name}'");
                     var param = ParameterMappingManager.GetParameter(element, name, bic);
                     
                     if (param == null)
                     {
                         System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Parameter '{name}' not found");
-                        continue;
-                    }
-                    
-                    if (!param.HasValue)
-                    {
-                        System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Parameter '{name}' has no value");
+                        // Add parameter as not found
+                        list.Add(new ParameterInfo 
+                        { 
+                            Name = name,
+                            EmptyReason = "Parameter not found" 
+                        });
                         continue;
                     }
 
-                    var valStr = GetParameterDisplayValue(param);
-                    System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Parameter '{name}' value: '{valStr}'");
+                    // Create enhanced parameter info (handles empty values properly)
+                    var paramInfo = CreateParameterInfo(param, name);
+                    list.Add(paramInfo);
                     
-                    if (!string.IsNullOrWhiteSpace(valStr))
+                    if (!string.IsNullOrEmpty(paramInfo.EmptyReason))
                     {
-                        list.Add(new ParameterInfo { Name = name, Value = valStr });
-                        System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Added parameter '{name}' = '{valStr}'");
+                        System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Parameter '{name}' is empty: {paramInfo.EmptyReason}");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Parameter '{name}' value: '{paramInfo.Value}'" + 
+                            (paramInfo.RawValue.HasValue ? $" (raw: {paramInfo.RawValue})" : ""));
                     }
                 }
                 
@@ -347,13 +359,19 @@ namespace RevitMCPCommandSet.Utils
                         try
                         {
                             var directParam = element.LookupParameter(name);
-                            if (directParam != null && directParam.HasValue)
+                            if (directParam != null)
                             {
-                                var directValue = GetParameterDisplayValue(directParam);
-                                if (!string.IsNullOrWhiteSpace(directValue))
+                                var directParamInfo = CreateParameterInfo(directParam, name);
+                                list.Add(directParamInfo);
+                                
+                                if (!string.IsNullOrEmpty(directParamInfo.EmptyReason))
                                 {
-                                    list.Add(new ParameterInfo { Name = name, Value = directValue });
-                                    System.Diagnostics.Trace.WriteLine($"DIAGNOSTIC: Found via direct lookup: '{name}' = '{directValue}'");
+                                    System.Diagnostics.Trace.WriteLine($"DIAGNOSTIC: Found via direct lookup but empty: '{name}' - {directParamInfo.EmptyReason}");
+                                }
+                                else
+                                {
+                                    System.Diagnostics.Trace.WriteLine($"DIAGNOSTIC: Found via direct lookup: '{name}' = '{directParamInfo.Value}'" + 
+                                        (directParamInfo.RawValue.HasValue ? $" (raw: {directParamInfo.RawValue})" : ""));
                                 }
                             }
                         }
@@ -394,12 +412,15 @@ namespace RevitMCPCommandSet.Utils
                 foreach (var name in names)
                 {
                     var param = ParameterMappingManager.GetParameter(element, name, bic);
-                    if (param == null || !param.HasValue) continue;
+                    if (param == null) continue;
 
-                    var valStr = GetParameterDisplayValue(param);
-                    if (!string.IsNullOrWhiteSpace(valStr))
+                    // Create enhanced parameter info (handles empty values properly)
+                    var paramInfo = CreateParameterInfo(param, name);
+                    
+                    // For mapped parameters, only include non-empty ones to keep response clean
+                    if (string.IsNullOrEmpty(paramInfo.EmptyReason))
                     {
-                        list.Add(new ParameterInfo { Name = name, Value = valStr });
+                        list.Add(paramInfo);
                     }
                 }
             }
@@ -412,24 +433,87 @@ namespace RevitMCPCommandSet.Utils
         }
 
         /// <summary>
-        /// Helper method to get parameter display value consistently
+        /// Create enhanced parameter info with proper unit handling and empty value detection
         /// </summary>
-        private static string GetParameterDisplayValue(Parameter param)
+        private static ParameterInfo CreateParameterInfo(Parameter param, string name)
         {
-            var valStr = param.AsValueString() ?? param.AsString();
-            if (string.IsNullOrWhiteSpace(valStr))
+            var info = new ParameterInfo { Name = name };
+            
+            try
             {
-                // Try numeric value for doubles
-                if (param.StorageType == StorageType.Double)
+                // Check if parameter has a value first
+                if (!param.HasValue)
                 {
-                    valStr = param.AsDouble().ToString();
+                    info.EmptyReason = "No value set";
+                    return info; // Value and RawValue remain null
                 }
-                else if (param.StorageType == StorageType.Integer)
+
+                switch (param.StorageType)
                 {
-                    valStr = param.AsInteger().ToString();
+                    case StorageType.Double:
+                        double doubleVal = param.AsDouble();
+                        
+                        // For double parameters, provide raw value only
+                        // AI is smart enough to figure out units from context and parameter name
+                        info.RawValue = doubleVal;
+                        info.Value = null; // Force AI to use precise raw value
+                        
+                        System.Diagnostics.Trace.WriteLine($"CreateParameterInfo: '{name}' Double - RawValue: {info.RawValue}");
+                        break;
+                        
+                    case StorageType.Integer:
+                        int intVal = param.AsInteger();
+                        info.RawValue = intVal;
+                        info.Value = null; // Force AI to use RawValue
+                        break;
+                        
+                    case StorageType.String:
+                        string stringVal = param.AsString();
+                        if (string.IsNullOrWhiteSpace(stringVal))
+                        {
+                            info.EmptyReason = "Empty string";
+                        }
+                        else
+                        {
+                            info.Value = stringVal;
+                        }
+                        break;
+                        
+                    case StorageType.ElementId:
+                        ElementId elemId = param.AsElementId();
+                        if (elemId == ElementId.InvalidElementId)
+                        {
+                            info.EmptyReason = "No element selected";
+                        }
+                        else
+                        {
+                            info.RawValue = elemId.IntegerValue;
+                        }
+                        break;
+                        
+                    default:
+                        string defaultValue = param.AsValueString() ?? param.AsString();
+                        if (string.IsNullOrWhiteSpace(defaultValue))
+                        {
+                            info.EmptyReason = "Unknown storage type with no value";
+                        }
+                        else
+                        {
+                            info.Value = defaultValue;
+                        }
+                        break;
                 }
             }
-            return valStr;
+            catch (Exception ex)
+            {
+                info.EmptyReason = $"Error reading parameter: {ex.Message}";
+            }
+            
+            return info;
         }
+
+
+
+
     }
 } 

@@ -274,52 +274,63 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
             {
                 if (element == null)
                     return null;
-                ElementBasicInfo basicInfo = new ElementBasicInfo
-                {
-                    Id = element.Id.IntegerValue,
-                    UniqueId = element.UniqueId,
-                    Name = element.Name,
-                    FamilyName = element?.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM)?.AsValueString(),
-                    Category = element.Category?.Name,
-                    BuiltInCategory = element.Category != null ?
-                        Enum.GetName(typeof(BuiltInCategory), element.Category.Id.IntegerValue) : null,
-                    BoundingBox = ElementInfoUtility.GetBoundingBoxInfo(element)
-                };
 
-                // Add parameter extraction for fallback factory too!
-                List<ParameterInfo> parameters = new List<ParameterInfo>();
-                
-                if (requestedParameters != null && requestedParameters.Any())
+                // Check if detailed info is specifically requested
+                bool needsDetailedInfo = detailLevel?.ToLower() == "detailed" || 
+                                        detailLevel?.ToLower() == "full";
+
+                if (needsDetailedInfo)
                 {
-                    // Extract specific requested parameters
-                    parameters = ElementInfoUtility.GetSpecificParameters(element, requestedParameters);
+                    // Return full ElementBasicInfo for detailed requests
+                    ElementBasicInfo basicInfo = new ElementBasicInfo
+                    {
+                        Id = element.Id.IntegerValue,
+                        UniqueId = element.UniqueId,
+                        Name = element.Name,
+                        FamilyName = element?.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM)?.AsValueString(),
+                        Category = element.Category?.Name,
+                        BuiltInCategory = element.Category != null ?
+                            Enum.GetName(typeof(BuiltInCategory), element.Category.Id.IntegerValue) : null,
+                        BoundingBox = ElementInfoUtility.GetBoundingBoxInfo(element)
+                    };
+
+                    // Add parameter extraction
+                    List<ParameterInfo> parameters = new List<ParameterInfo>();
+                    
+                    if (requestedParameters != null && requestedParameters.Any())
+                    {
+                        parameters = ElementInfoUtility.GetSpecificParameters(element, requestedParameters);
+                    }
+                    else
+                    {
+                        parameters = ElementInfoUtility.GetMappedParameters(element);
+                    }
+                    
+                    basicInfo.Parameters.AddRange(parameters);
+                    return basicInfo;
                 }
                 else
                 {
-                    // Extract based on detail level
-                    switch (detailLevel?.ToLower())
+                    // Return minimal info by default (token-efficient)
+                    var minimalInfo = new ElementMinimalInfo
                     {
-                        case "detailed":
-                        case "all":
-                            parameters = ElementInfoUtility.GetMappedParameters(element);
-                            break;
-                        case "standard":
-                            parameters = ElementInfoUtility.GetMappedParameters(element);
-                            break;
-                        case "basic":
-                        default:
-                            parameters = ElementInfoUtility.GetBasicParameters(element);
-                            break;
+                        Id = element.Id.IntegerValue,
+                        Name = element.Name
+                    };
+
+                    // Add only specifically requested parameters
+                    if (requestedParameters != null && requestedParameters.Any())
+                    {
+                        var parameters = ElementInfoUtility.GetSpecificParameters(element, requestedParameters);
+                        minimalInfo.Parameters.AddRange(parameters);
                     }
+
+                    return minimalInfo;
                 }
-                
-                basicInfo.Parameters.AddRange(parameters);
-                
-                return basicInfo;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Trace.WriteLine($"Error creating basic element information: {ex.Message}");
+                System.Diagnostics.Trace.WriteLine($"Error creating element information: {ex.Message}");
                 return null;
             }
         }
