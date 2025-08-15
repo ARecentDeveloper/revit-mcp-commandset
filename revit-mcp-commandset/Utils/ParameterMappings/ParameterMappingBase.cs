@@ -48,6 +48,12 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
         public abstract Dictionary<string, string> GetParameterAliases();
 
         /// <summary>
+        /// Check if a parameter name exists in this mapping (without needing an element)
+        /// Used for parameter resolution to validate parameter availability
+        /// </summary>
+        public abstract bool HasParameter(string parameterName);
+
+        /// <summary>
         /// Helper method to try getting built-in parameter
         /// </summary>
         protected Parameter GetBuiltInParameter(Element element, BuiltInParameter builtInParam)

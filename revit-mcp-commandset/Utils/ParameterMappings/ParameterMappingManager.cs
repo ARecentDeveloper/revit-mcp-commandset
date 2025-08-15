@@ -143,5 +143,13 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
         {
             Mappings[mapping.Category] = mapping;
         }
+
+        /// <summary>
+        /// Get available categories as string list (for error messages)
+        /// </summary>
+        public static List<string> GetAvailableCategories()
+        {
+            return Mappings.Keys.Select(k => k.ToString()).ToList();
+        }
     }
 }

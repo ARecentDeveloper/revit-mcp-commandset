@@ -188,7 +188,21 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
             { "tf", "flange thickness" },
             { "tw", "web thickness" },
             { "flange", "flange thickness" },
-            { "web", "web thickness" }
+            { "web", "web thickness" },
+            
+            // Camber aliases
+            { "camber", "camber size" },
+            { "beam camber", "camber size" },
+            { "member camber", "camber size" },
+            
+            // Stud count aliases
+            { "stud count", "number of studs" },
+            { "studs", "number of studs" },
+            { "stud", "number of studs" },
+            { "number of stud", "number of studs" },
+            { "stud number", "number of studs" },
+            { "beam studs", "number of studs" },
+            { "shear studs", "number of studs" }
         };     
    protected override Parameter GetCategorySpecificParameter(Element element, string parameterName)
         {
@@ -414,6 +428,18 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
         public override Dictionary<string, string> GetParameterAliases()
         {
             return new Dictionary<string, string>(_aliases);
+        }
+
+        public override bool HasParameter(string parameterName)
+        {
+            if (string.IsNullOrEmpty(parameterName)) return false;
+            
+            // Check aliases first
+            string actualParamName = _aliases.ContainsKey(parameterName.ToLower()) ? _aliases[parameterName.ToLower()] : parameterName;
+            
+            // Check if parameter exists in either mapping
+            return _parameterMappings.ContainsKey(actualParamName) || 
+                   _typeParameterMappings.ContainsKey(actualParamName);
         }
     }
 }

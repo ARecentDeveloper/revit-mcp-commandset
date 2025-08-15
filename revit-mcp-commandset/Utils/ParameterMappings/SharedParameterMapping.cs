@@ -76,15 +76,45 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
         public static readonly Dictionary<string, string> CommonAliases = 
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
+            // Identity aliases
             { "number", "mark" },
             { "tag", "mark" },
             { "element mark", "mark" },
             { "element number", "mark" },
+            
+            // Manufacturer aliases
             { "mfr", "manufacturer" },
             { "mfg", "manufacturer" },
+            
+            // Fire rating aliases
             { "fire rate", "fire rating" },
+            
+            // Assembly aliases
             { "uniformat code", "assembly code" },
-            { "uniformat description", "assembly description" }
+            { "uniformat description", "assembly description" },
+            
+            // Phase aliases (your use case!)
+            { "created", "phase created" },
+            { "demolished", "phase demolished" },
+            
+            // Design option aliases
+            { "option", "design option" },
+            { "options", "design option" },
+            
+            // Workset aliases
+            { "workset", "workset" },
+            
+            // Common property aliases
+            { "id", "type id" },
+            { "name", "type name" },
+            
+            // Material aliases
+            { "material", "structural material" },
+            
+            // Comment aliases
+            { "comment", "comments" },
+            { "note", "comments" },
+            { "notes", "comments" }
         };
 
         /// <summary>

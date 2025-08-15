@@ -188,5 +188,16 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
         {
             return new Dictionary<string, string>(_aliases);
         }
+
+        public override bool HasParameter(string parameterName)
+        {
+            if (string.IsNullOrEmpty(parameterName)) return false;
+            
+            // Check aliases first
+            string actualParamName = _aliases.ContainsKey(parameterName.ToLower()) ? _aliases[parameterName.ToLower()] : parameterName;
+            
+            // Check if parameter exists in mapping
+            return _parameterMappings.ContainsKey(actualParamName);
+        }
     }
 }
