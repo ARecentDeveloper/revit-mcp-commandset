@@ -11,7 +11,7 @@ using System.Threading;
 
 namespace RevitMCPCommandSet.Services
 {
-    public class AIElementFilterEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class ElementFilterEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
     {
         private UIApplication uiApp;
         private UIDocument uiDoc => uiApp.ActiveUIDocument;

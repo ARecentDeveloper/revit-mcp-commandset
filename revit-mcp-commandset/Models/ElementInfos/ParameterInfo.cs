@@ -27,6 +27,14 @@ namespace RevitMCPCommandSet.Models.ElementInfos
         public double? RawValue { get; set; }
         
         /// <summary>
+        /// Human-readable display value as shown in Revit UI
+        /// For reference parameters (phases, materials, types): shows the name
+        /// For formatted parameters: shows formatted string with units
+        /// For text parameters: same as Value
+        /// </summary>
+        public string AsValueString { get; set; }
+        
+        /// <summary>
         /// Reason why parameter is empty (only present when parameter is empty)
         /// Examples: "No value set", "Empty string", "Parameter not found"
         /// </summary>

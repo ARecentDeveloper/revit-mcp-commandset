@@ -11,21 +11,21 @@ using System.Threading.Tasks;
 
 namespace RevitMCPCommandSet.Commands
 {
-    public class AIElementFilterCommand : ExternalEventCommandBase
+    public class ElementFilterCommand : ExternalEventCommandBase
     {
-        private AIElementFilterEventHandler _handler => (AIElementFilterEventHandler)Handler;
+        private ElementFilterEventHandler _handler => (ElementFilterEventHandler)Handler;
 
         /// <summary>
         /// Command name
         /// </summary>
-        public override string CommandName => "ai_element_filter";
+        public override string CommandName => "element_filter";
 
         /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="uiApp">Revit UIApplication</param>
-        public AIElementFilterCommand(UIApplication uiApp)
-            : base(new AIElementFilterEventHandler(), uiApp)
+        public ElementFilterCommand(UIApplication uiApp)
+            : base(new ElementFilterEventHandler(), uiApp)
         {
         }
 

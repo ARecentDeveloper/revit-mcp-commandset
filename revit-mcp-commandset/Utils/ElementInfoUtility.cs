@@ -441,6 +441,14 @@ namespace RevitMCPCommandSet.Utils
             
             try
             {
+                // Always try to get the display value (AsValueString) first
+                // This provides human-readable values for phases, materials, types, etc.
+                string displayValue = param.AsValueString();
+                if (!string.IsNullOrWhiteSpace(displayValue))
+                {
+                    info.AsValueString = displayValue;
+                }
+
                 // Check if parameter has a value first
                 if (!param.HasValue)
                 {
@@ -458,7 +466,7 @@ namespace RevitMCPCommandSet.Utils
                         info.RawValue = doubleVal;
                         info.Value = null; // Force AI to use precise raw value
                         
-                        System.Diagnostics.Trace.WriteLine($"CreateParameterInfo: '{name}' Double - RawValue: {info.RawValue}");
+                        System.Diagnostics.Trace.WriteLine($"CreateParameterInfo: '{name}' Double - RawValue: {info.RawValue}, AsValueString: {info.AsValueString}");
                         break;
                         
                     case StorageType.Integer:
@@ -488,6 +496,7 @@ namespace RevitMCPCommandSet.Utils
                         else
                         {
                             info.RawValue = elemId.IntegerValue;
+                            // AsValueString should already be populated above with the element name
                         }
                         break;
                         
