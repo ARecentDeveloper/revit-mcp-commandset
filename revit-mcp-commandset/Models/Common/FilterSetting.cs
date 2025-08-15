@@ -195,7 +195,7 @@ namespace RevitMCPCommandSet.Models.Common
                 // Parameter filters require a category for proper parameter mapping
                 if (string.IsNullOrWhiteSpace(FilterCategory))
                 {
-                    errorMessage = "Parameter filters require a category to be specified for proper parameter mapping";
+                    errorMessage = "Parameter filters require a category to be specified for proper parameter mapping. Please add 'filterCategory' (e.g., 'OST_StructuralFraming', 'OST_Walls', 'OST_Doors') to your request.";
                     return false;
                 }
             }

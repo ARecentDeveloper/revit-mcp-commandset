@@ -195,7 +195,10 @@ namespace RevitMCPCommandSet.Services.Filtering
                             if (elementIdFilter != null)
                             {
                                 filters.Add(elementIdFilter);
-                                appliedFilters.Add($"ElementId filter: {paramFilter.Operator} {paramFilter.Value}");
+                                
+                                // Enhanced logging for arrays
+                                string valueDescription = GetValueDescription(paramFilter.Value);
+                                appliedFilters.Add($"ElementId filter: {paramFilter.Operator} {valueDescription}");
                             }
                         }
                         else
@@ -204,7 +207,10 @@ namespace RevitMCPCommandSet.Services.Filtering
                             if (elementFilter != null)
                             {
                                 filters.Add(elementFilter);
-                                appliedFilters.Add($"Parameter filter: {paramFilter.Name} {paramFilter.Operator} {paramFilter.Value}");
+                                
+                                // Enhanced logging for arrays
+                                string valueDescription = GetValueDescription(paramFilter.Value);
+                                appliedFilters.Add($"Parameter filter: {paramFilter.Name} {paramFilter.Operator} {valueDescription}");
                             }
                         }
                     }
@@ -227,6 +233,26 @@ namespace RevitMCPCommandSet.Services.Filtering
                 }
             }
             return collector.ToElements().ToList();
+        }
+
+        /// <summary>
+        /// Get a descriptive string for filter values (handles both single values and arrays)
+        /// </summary>
+        private static string GetValueDescription(object value)
+        {
+            if (value is System.Collections.IEnumerable enumerable && !(value is string))
+            {
+                var items = new List<string>();
+                foreach (var item in enumerable)
+                {
+                    items.Add(item?.ToString() ?? "null");
+                }
+                return $"[{string.Join(", ", items)}] ({items.Count} items)";
+            }
+            else
+            {
+                return value?.ToString() ?? "null";
+            }
         }
 
         /// <summary>
@@ -310,9 +336,58 @@ namespace RevitMCPCommandSet.Services.Filtering
         }
 
         /// <summary>
-        /// Create a Revit parameter filter based on the operator and value
+        /// Create a Revit parameter filter based on the operator and value (supports single values and arrays)
         /// </summary>
         private static ElementFilter CreateRevitParameterFilter(BuiltInParameter builtInParam, string operatorStr, object value)
+        {
+            try
+            {
+                // Handle arrays by creating multiple filters and combining them with OR logic
+                if (value is System.Collections.IEnumerable enumerable && !(value is string))
+                {
+                    var filters = new List<ElementFilter>();
+                    
+                    foreach (var item in enumerable)
+                    {
+                        var singleFilter = CreateSingleValueParameterFilter(builtInParam, operatorStr, item);
+                        if (singleFilter != null)
+                        {
+                            filters.Add(singleFilter);
+                        }
+                    }
+                    
+                    if (filters.Count == 0)
+                    {
+                        System.Diagnostics.Trace.WriteLine($"Warning: No valid filters created from array values");
+                        return null;
+                    }
+                    
+                    if (filters.Count == 1)
+                    {
+                        return filters[0];
+                    }
+                    
+                    // Combine multiple filters with OR logic
+                    System.Diagnostics.Trace.WriteLine($"Creating OR filter with {filters.Count} conditions for parameter array");
+                    return new LogicalOrFilter(filters);
+                }
+                else
+                {
+                    // Handle single value
+                    return CreateSingleValueParameterFilter(builtInParam, operatorStr, value);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"Error creating Revit parameter filter: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Create a Revit parameter filter for a single value
+        /// </summary>
+        private static ElementFilter CreateSingleValueParameterFilter(BuiltInParameter builtInParam, string operatorStr, object value)
         {
             try
             {
@@ -341,7 +416,7 @@ namespace RevitMCPCommandSet.Services.Filtering
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Trace.WriteLine($"Error creating Revit parameter filter: {ex.Message}");
+                System.Diagnostics.Trace.WriteLine($"Error creating single value parameter filter: {ex.Message}");
                 return null;
             }
         }
@@ -460,21 +535,49 @@ namespace RevitMCPCommandSet.Services.Filtering
         }
 
         /// <summary>
-        /// Create an ElementId-based filter for filtering by element ID
+        /// Create an ElementId-based filter for filtering by element ID (supports single values and arrays)
         /// </summary>
         private static ElementFilter CreateElementIdFilter(ParameterFilter paramFilter)
         {
             try
             {
-                // Parse the element ID value
-                if (!int.TryParse(paramFilter.Value?.ToString(), out int elementIdValue))
-                {
-                    System.Diagnostics.Trace.WriteLine($"Warning: Could not parse ElementId value '{paramFilter.Value}' as integer");
-                    return null;
-                }
+                var elementIds = new List<ElementId>();
 
-                var elementId = new ElementId(elementIdValue);
-                var elementIds = new List<ElementId> { elementId };
+                // Handle both single values and arrays
+                if (paramFilter.Value is System.Collections.IEnumerable enumerable && !(paramFilter.Value is string))
+                {
+                    // Handle array of values
+                    foreach (var item in enumerable)
+                    {
+                        if (int.TryParse(item?.ToString(), out int elementIdValue))
+                        {
+                            elementIds.Add(new ElementId(elementIdValue));
+                        }
+                        else
+                        {
+                            System.Diagnostics.Trace.WriteLine($"Warning: Could not parse ElementId array item '{item}' as integer");
+                        }
+                    }
+                    
+                    if (elementIds.Count == 0)
+                    {
+                        System.Diagnostics.Trace.WriteLine($"Warning: No valid ElementId values found in array");
+                        return null;
+                    }
+                    
+                    System.Diagnostics.Trace.WriteLine($"ElementId array filter: Found {elementIds.Count} valid element IDs");
+                }
+                else
+                {
+                    // Handle single value
+                    if (!int.TryParse(paramFilter.Value?.ToString(), out int elementIdValue))
+                    {
+                        System.Diagnostics.Trace.WriteLine($"Warning: Could not parse ElementId value '{paramFilter.Value}' as integer");
+                        return null;
+                    }
+                    
+                    elementIds.Add(new ElementId(elementIdValue));
+                }
 
                 // For ElementId filtering, we typically only support "equals" operation
                 switch (paramFilter.Operator.ToLower())
