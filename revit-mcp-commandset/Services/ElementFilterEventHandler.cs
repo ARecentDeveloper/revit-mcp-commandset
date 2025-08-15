@@ -2,8 +2,10 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RevitMCPSDK.API.Interfaces;
 using RevitMCPCommandSet.Models.Common;
+using RevitMCPCommandSet.Models.ElementInfos;
 using RevitMCPCommandSet.Services.ElementInfoFactories;
 using RevitMCPCommandSet.Services.Filtering;
+using RevitMCPCommandSet.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,7 +30,7 @@ namespace RevitMCPCommandSet.Services
         /// <summary>
         /// Execution result (outgoing data)
         /// </summary>
-        public AIResult<List<object>> Result { get; private set; }
+        public object Result { get; private set; }
 
         /// <summary>
         /// Set creation parameters
@@ -44,22 +46,23 @@ namespace RevitMCPCommandSet.Services
 
             try
             {
-                var elementInfoList = new List<object>();
                 // Check if the filter settings are valid
                 if (!FilterSetting.Validate(out string errorMessage))
                     throw new Exception(errorMessage);
+                
                 // Get the Id of the element that meets the specified conditions
                 var elementList = ElementFilterService.GetFilteredElements(doc, FilterSetting);
                 if (elementList == null || !elementList.Any())
                     throw new Exception("The specified element was not found in the project. Please check if the filter settings are correct");
+                
                 // Maximum number of filters limit
-                string message = "";
+                string limitMessage = "";
                 if (FilterSetting.MaxElements > 0)
                 {
                     if (elementList.Count > FilterSetting.MaxElements)
                     {
                         elementList = elementList.Take(FilterSetting.MaxElements).ToList();
-                        message = $". In addition, there are {elementList.Count} elements that meet the filter criteria, only the first {FilterSetting.MaxElements} are displayed";
+                        limitMessage = $". Note: {elementList.Count} elements found, showing first {FilterSetting.MaxElements} due to limit";
                     }
                 }
 
@@ -70,29 +73,49 @@ namespace RevitMCPCommandSet.Services
                 var requestedParameters = GetRequestedParameters(FilterSetting);
                 var detailLevel = FilterSetting.DetailLevel ?? "basic";
                 
+                // Create element info objects
+                var elementInfoList = new List<ElementMinimalInfo>();
                 foreach (var element in elementList)
                 {
                     var info = registry.CreateInfo(doc, element, detailLevel, requestedParameters);
-                    if (info != null)
+                    if (info is ElementMinimalInfo minimalInfo)
                     {
-                        elementInfoList.Add(info);
+                        elementInfoList.Add(minimalInfo);
+                    }
+                    else if (info != null)
+                    {
+                        // Convert other types to ElementMinimalInfo for consistency
+                        var converted = ConvertToElementMinimalInfo(info);
+                        if (converted != null)
+                        {
+                            elementInfoList.Add(converted);
+                        }
                     }
                 }
 
-                Result = new AIResult<List<object>>
+                // Determine response format
+                string responseFormat = FilterSetting.ResponseFormat ?? "tabular";
+                
+                if (responseFormat.Equals("standard", StringComparison.OrdinalIgnoreCase))
                 {
-                    Success = true,
-                    Message = $"Successfully obtained {elementInfoList.Count} element information. The detailed information is stored in the Response property"+ message,
-                    Response = elementInfoList,
-                };
+                    // Return standard format (backward compatibility)
+                    Result = new AIResult<List<object>>
+                    {
+                        Success = true,
+                        Message = $"Successfully obtained {elementInfoList.Count} element information. The detailed information is stored in the Response property" + limitMessage,
+                        Response = elementInfoList.Cast<object>().ToList(),
+                    };
+                }
+                else
+                {
+                    // Return tabular format (default)
+                    string message = $"Successfully obtained {elementInfoList.Count} element information in optimized tabular format. Elements grouped by parameter values for efficient processing" + limitMessage;
+                    Result = ElementFilterResponse.CreateTabular(elementInfoList, message);
+                }
             }
             catch (Exception ex)
             {
-                Result = new AIResult<List<object>>
-                {
-                    Success = false,
-                    Message = $"Error getting element information: {ex.Message}",
-                };
+                Result = ElementFilterResponse.CreateError($"Error getting element information: {ex.Message}");
             }
             finally
             {
@@ -136,6 +159,38 @@ namespace RevitMCPCommandSet.Services
             }
             
             return requestedParams.Any() ? requestedParams : null;
+        }
+
+        /// <summary>
+        /// Convert various element info types to ElementMinimalInfo for consistent processing
+        /// </summary>
+        private ElementMinimalInfo ConvertToElementMinimalInfo(object elementInfo)
+        {
+            switch (elementInfo)
+            {
+                case ElementBasicInfo basicInfo:
+                    return new ElementMinimalInfo
+                    {
+                        Id = basicInfo.Id,
+                        Name = basicInfo.Name,
+                        Parameters = basicInfo.Parameters ?? new List<ParameterInfo>()
+                    };
+                
+                case ElementInstanceInfo instanceInfo:
+                    return new ElementMinimalInfo
+                    {
+                        Id = instanceInfo.Id,
+                        Name = instanceInfo.Name,
+                        Parameters = instanceInfo.Parameters ?? new List<ParameterInfo>()
+                    };
+                
+                case ElementMinimalInfo minimalInfo:
+                    return minimalInfo;
+                
+                default:
+                    System.Diagnostics.Trace.WriteLine($"Warning: Unknown element info type: {elementInfo?.GetType().Name}");
+                    return null;
+            }
         }
 
         /// <summary>

@@ -129,7 +129,14 @@ namespace RevitMCPCommandSet.Models.Common
         /// Response detail level: "basic" (minimal info), "standard" (common parameters), "detailed" (all available parameters)
         /// </summary>
         [JsonProperty("detailLevel")]
-        public string DetailLevel { get; set; } = "basic"; 
+        public string DetailLevel { get; set; } = "basic";
+
+        /// <summary>
+        /// Response format: "standard" (traditional element list), "tabular" (optimized grouping by parameter values)
+        /// Tabular format significantly reduces token usage for batch queries by eliminating redundancy
+        /// </summary>
+        [JsonProperty("responseFormat")]
+        public string ResponseFormat { get; set; } = "tabular"; 
         /// <summary>
         /// Validates the validity of filter settings and checks for potential conflicts
         /// </summary>
