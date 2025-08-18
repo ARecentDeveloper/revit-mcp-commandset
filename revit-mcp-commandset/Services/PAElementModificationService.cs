@@ -48,7 +48,7 @@ namespace RevitMCPCommandSet.Services
                     throw new ArgumentException($"Invalid element ID: {elementId}");
                 }
 
-                var revitElementId = new ElementId(id);
+                var revitElementId = new ElementId((long)id);
                 var element = doc.GetElement(revitElementId);
 
                 if (element == null)
@@ -202,7 +202,7 @@ namespace RevitMCPCommandSet.Services
                     throw new ArgumentException($"Invalid element ID: {elementId}");
                 }
 
-                var revitElementId = new ElementId(id);
+                var revitElementId = new ElementId((long)id);
                 var element = doc.GetElement(revitElementId);
 
                 if (element == null)
@@ -509,7 +509,7 @@ namespace RevitMCPCommandSet.Services
                                 continue;
                             }
 
-                            var elementId = new ElementId(idValue);
+                            var elementId = new ElementId((long)idValue);
                             var element = doc.GetElement(elementId);
 
                             if (element == null)
@@ -618,7 +618,7 @@ namespace RevitMCPCommandSet.Services
                                 continue;
                             }
 
-                            var elementId = new ElementId(idValue);
+                            var elementId = new ElementId((long)idValue);
                             var element = doc.GetElement(elementId);
                             var sheet = element as ViewSheet;
 

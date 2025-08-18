@@ -32,13 +32,13 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
 
                 ViewInfo info = new ViewInfo
                 {
-                    Id = element.Id.IntegerValue,
+                    Id = (int)element.Id.Value,
                     UniqueId = element.UniqueId,
                     Name = element.Name,
                     FamilyName = element?.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM)?.AsValueString(),
                     Category = element.Category?.Name,
                     BuiltInCategory = element.Category != null ?
-                        Enum.GetName(typeof(BuiltInCategory), element.Category.Id.IntegerValue) : null,
+                        Enum.GetName(typeof(BuiltInCategory), element.Category.Id.Value) : null,
                     ElementClass = element.GetType().Name,
                     ViewType = view.ViewType.ToString(),
                     Scale = view.Scale,
@@ -53,7 +53,7 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
                     Level level = viewPlan.GenLevel;
                     info.AssociatedLevel = new LevelInfo
                     {
-                        Id = level.Id.IntegerValue,
+                        Id = (int)level.Id.Value,
                         Name = level.Name,
                         Height = level.Elevation * 304.8 // Convert to mm
                     };
@@ -68,12 +68,12 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
                 foreach (UIView uiView in openViews)
                 {
                     // Check if the view is open
-                    if (uiView.ViewId.IntegerValue == view.Id.IntegerValue)
+                    if (uiView.ViewId.Value == view.Id.Value)
                     {
                         info.IsOpen = true;
 
                         // Check if the view is the currently active view
-                        if (uidoc.ActiveView.Id.IntegerValue == view.Id.IntegerValue)
+                        if (uidoc.ActiveView.Id.Value == view.Id.Value)
                         {
                             info.IsActive = true;
                         }

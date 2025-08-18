@@ -206,7 +206,7 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
         };     
    protected override Parameter GetCategorySpecificParameter(Element element, string parameterName)
         {
-            System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping.GetCategorySpecificParameter: Looking for '{parameterName}' on element {element.Id.IntegerValue}");
+            System.Diagnostics.Trace.WriteLine($"StructuralFramingParameterMapping.GetCategorySpecificParameter: Looking for '{parameterName}' on element {element.Id.Value}");
             
             // Check aliases first
             string actualParamName = _aliases.ContainsKey(parameterName) ? _aliases[parameterName] : parameterName;

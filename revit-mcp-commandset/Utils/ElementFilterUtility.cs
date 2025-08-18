@@ -343,7 +343,7 @@ namespace RevitMCPCommandSet.Utils
         private static List<ElementId> ConvertToElementIds(List<long> longIds)
         {
             if (longIds == null) return new List<ElementId>();
-            return longIds.Select(id => new ElementId((int)id)).ToList();
+            return longIds.Select(id => new ElementId(id)).ToList();
         }
 
         /// <summary>

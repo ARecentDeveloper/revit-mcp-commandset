@@ -31,13 +31,13 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
                 SpatialElement spatialElement = element as SpatialElement;
                 SpatialElementInfo info = new SpatialElementInfo
                 {
-                    Id = element.Id.IntegerValue,
+                    Id = (int)element.Id.Value,
                     UniqueId = element.UniqueId,
                     Name = element.Name,
                     FamilyName = element?.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM)?.AsValueString(),
                     Category = element.Category?.Name,
                     BuiltInCategory = element.Category != null ?
-                        Enum.GetName(typeof(BuiltInCategory), element.Category.Id.IntegerValue) : null,
+                        Enum.GetName(typeof(BuiltInCategory), element.Category.Id.Value) : null,
                     ElementClass = element.GetType().Name,
                     BoundingBox = ElementInfoUtility.GetBoundingBoxInfo(element)
                 };

@@ -60,7 +60,7 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
         {
             var minimalInfo = new ElementMinimalInfo
             {
-                Id = element.Id.IntegerValue,
+                Id = (int)element.Id.Value,
                 Name = element.Name
             };
 
@@ -81,7 +81,7 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
         {
             var elementInfo = new ElementInstanceInfo();
             // ID
-            elementInfo.Id = element.Id.IntegerValue;
+            elementInfo.Id = (int)element.Id.Value;
             // UniqueId
             elementInfo.UniqueId = element.UniqueId;
             // Type name
@@ -91,12 +91,12 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
             // Category
             elementInfo.Category = element.Category.Name;
             // Built-in category
-            elementInfo.BuiltInCategory = Enum.GetName(typeof(BuiltInCategory), element.Category.Id.IntegerValue);
+            elementInfo.BuiltInCategory = Enum.GetName(typeof(BuiltInCategory), element.Category.Id.Value);
             // Type Id
-            elementInfo.TypeId = element.GetTypeId().IntegerValue;
+            elementInfo.TypeId = (int)element.GetTypeId().Value;
             //Room Id  
             if (element is FamilyInstance instance)
-                elementInfo.RoomId = instance.Room?.Id.IntegerValue ?? -1;
+                elementInfo.RoomId = (int)(instance.Room?.Id.Value ?? -1);
             // Level
             elementInfo.Level = ElementInfoUtility.GetElementLevel(doc, element);
             // Maximum bounding box

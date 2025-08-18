@@ -262,7 +262,7 @@ namespace RevitMCPCommandSet.Services
                     
                     families.Add(new PAFamilyInfo
                     {
-                        ElementId = family.Id.IntegerValue,
+                        ElementId = (int)family.Id.Value,
                         Category = categoryName,
                         CurrentName = family.Name,
                         TypeName = typeName,
@@ -325,7 +325,7 @@ namespace RevitMCPCommandSet.Services
                     
                     families.Add(new PAFamilyInfo
                     {
-                        ElementId = family.Id.IntegerValue,
+                        ElementId = (int)family.Id.Value,
                         Category = categoryName,
                         CurrentName = family.Name,
                         TypeName = typeName,
@@ -420,7 +420,7 @@ namespace RevitMCPCommandSet.Services
                     
                     sheets.Add(new PASheetInfo
                     {
-                        ElementId = sheet.Id.IntegerValue,
+                        ElementId = (int)sheet.Id.Value,
                         CurrentName = sheet.Name,
                         SheetNumber = sheet.SheetNumber,
                         SuggestedName = suggestedName
@@ -465,7 +465,7 @@ namespace RevitMCPCommandSet.Services
                     
                     issues.Add(new PAModelIntegrityIssue
                     {
-                        ElementId = element.Id.IntegerValue,
+                        ElementId = (int)element.Id.Value,
                         CurrentCategory = currentCategory,
                         ElementName = elementName,
                         SuggestedCategory = suggestedCategory
@@ -493,7 +493,7 @@ namespace RevitMCPCommandSet.Services
 
             // Check if the category is an annotation category
             var categoryId = family.FamilyCategory.Id;
-            var builtInCategory = (BuiltInCategory)categoryId.IntegerValue;
+            var builtInCategory = (BuiltInCategory)categoryId.Value;
             var categoryName = family.FamilyCategory.Name;
 
             // Common annotation categories

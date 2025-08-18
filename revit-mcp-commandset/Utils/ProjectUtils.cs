@@ -113,7 +113,7 @@ namespace RevitMCPCommandSet.Utils
                         throw new ArgumentNullException($"Required parameter {typeof(Level)} {nameof(baseLevel)} is missing!");
                     // Determine if it's a structural column or architectural column
                     StructuralType structuralType = StructuralType.NonStructural;
-                    if (familySymbol.Category.Id.IntegerValue == (int)BuiltInCategory.OST_StructuralColumns)
+                    if (familySymbol.Category.Id.Value == (int)BuiltInCategory.OST_StructuralColumns)
                         structuralType = StructuralType.Column;
                     instance = doc.Create.NewFamilyInstance(
                         locationPoint,              // Physical location where the instance will be placed
@@ -868,7 +868,7 @@ namespace RevitMCPCommandSet.Utils
                  .FirstOrDefault(l => l.Name == levelName);
             if (namesakeLevel != null)
             {
-                levelName = $"{levelName}_{newLevel.Id.IntegerValue.ToString()}";
+                levelName = $"{levelName}_{newLevel.Id.Value.ToString()}";
             }
             newLevel.Name = levelName;
 

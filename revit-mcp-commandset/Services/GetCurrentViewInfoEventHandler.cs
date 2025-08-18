@@ -44,7 +44,7 @@ namespace RevitMCPCommandSet.Services
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("error", "Failed to get information");
+                TaskDialog.Show("error", $"Failed to get information: {ex.Message}");
             }
             finally
             {

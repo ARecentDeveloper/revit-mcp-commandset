@@ -67,7 +67,7 @@ namespace RevitMCPCommandSet.Utils
                 {
                     LevelInfo levelInfo = new LevelInfo
                     {
-                        Id = level.Id.IntegerValue,
+                        Id = (int)level.Id.Value,
                         Name = level.Name,
                         Height = level.Elevation * 304.8
                     };
@@ -174,7 +174,7 @@ namespace RevitMCPCommandSet.Utils
             }
             else if (elementType is FamilySymbol familySymbol)
             {
-                switch (familySymbol.Category?.Id.IntegerValue)
+                switch (familySymbol.Category?.Id.Value)
                 {
                     case (int)BuiltInCategory.OST_Doors:
                     case (int)BuiltInCategory.OST_Windows:
@@ -212,8 +212,8 @@ namespace RevitMCPCommandSet.Utils
 
             try
             {
-                var bic = (BuiltInCategory)element.Category.Id.IntegerValue;
-                System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Element {element.Id.IntegerValue} ({element.Name}), Category: {bic}");
+                var bic = (BuiltInCategory)element.Category.Id.Value;
+                System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Element {element.Id.Value} ({element.Name}), Category: {bic}");
                 
                 if (!ParameterMappingManager.HasMapping(bic)) 
                 {
@@ -276,8 +276,8 @@ namespace RevitMCPCommandSet.Utils
 
             try
             {
-                var bic = (BuiltInCategory)element.Category.Id.IntegerValue;
-                System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Element {element.Id.IntegerValue} ({element.Name}), Category: {bic}");
+                var bic = (BuiltInCategory)element.Category.Id.Value;
+                System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Element {element.Id.Value} ({element.Name}), Category: {bic}");
                 
                 if (!ParameterMappingManager.HasMapping(bic)) 
                 {
@@ -403,7 +403,7 @@ namespace RevitMCPCommandSet.Utils
 
             try
             {
-                var bic = (BuiltInCategory)element.Category.Id.IntegerValue;
+                var bic = (BuiltInCategory)element.Category.Id.Value;
                 if (!ParameterMappingManager.HasMapping(bic)) return list;
 
                 var names = ParameterMappingManager.GetCommonParameterNames(bic);
@@ -495,7 +495,7 @@ namespace RevitMCPCommandSet.Utils
                         }
                         else
                         {
-                            info.RawValue = elemId.IntegerValue;
+                            info.RawValue = elemId.Value;
                             // AsValueString should already be populated above with the element name
                         }
                         break;

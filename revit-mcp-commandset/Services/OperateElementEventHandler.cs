@@ -100,7 +100,7 @@ namespace RevitMCPCommandSet.Services
             Document doc = uidoc.Document;
 
             // Convert int type element IDs to ElementId type
-            ICollection<ElementId> elementIds = setting.ElementIds.Select(id => new ElementId(id)).ToList();
+            ICollection<ElementId> elementIds = setting.ElementIds.Select(id => new ElementId((long)id)).ToList();
 
             // Parse operation type
             ElementOperationType action;

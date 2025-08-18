@@ -62,7 +62,7 @@ namespace RevitMCPCommandSet.Services
                     FamilySymbol symbol = null;
                     if (data.TypeId != -1 && data.TypeId != 0)
                     {
-                        ElementId typeELeId = new ElementId(data.TypeId);
+                        ElementId typeELeId = new ElementId((long)data.TypeId);
                         if (typeELeId != null)
                         {
                             Element typeEle = doc.GetElement(typeELeId);
@@ -70,7 +70,7 @@ namespace RevitMCPCommandSet.Services
                             {
                                 symbol = typeEle as FamilySymbol;
                                 // Get symbol's Category object and convert to BuiltInCategory enum
-                                builtInCategory = (BuiltInCategory)symbol.Category.Id.IntegerValue;
+                                builtInCategory = (BuiltInCategory)symbol.Category.Id.Value;
                             }
                         }
                     }
@@ -116,7 +116,7 @@ namespace RevitMCPCommandSet.Services
                                 doc.Regenerate();
                             }
 
-                            elementIds.Add(instance.Id.IntegerValue);
+                            elementIds.Add((int)instance.Id.Value);
                         }
                         //doc.Refresh();
                         transaction.Commit();

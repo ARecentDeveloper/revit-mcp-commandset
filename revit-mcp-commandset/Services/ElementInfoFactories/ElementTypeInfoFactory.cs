@@ -30,7 +30,7 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
 
                 ElementTypeInfo typeInfo = new ElementTypeInfo();
                 // Id
-                typeInfo.Id = elementType.Id.IntegerValue;
+                typeInfo.Id = (int)elementType.Id.Value;
                 // UniqueId
                 typeInfo.UniqueId = elementType.UniqueId;
                 // Type name
@@ -42,7 +42,7 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
                 // Built-in category
                 if (elementType.Category != null)
                 {
-                    typeInfo.BuiltInCategory = Enum.GetName(typeof(BuiltInCategory), elementType.Category.Id.IntegerValue);
+                    typeInfo.BuiltInCategory = Enum.GetName(typeof(BuiltInCategory), elementType.Category.Id.Value);
                 }
                 // Parameter dictionary - for type elements, we typically want more detail
                 typeInfo.Parameters = ParameterUtility.GetDimensionParameters(elementType);

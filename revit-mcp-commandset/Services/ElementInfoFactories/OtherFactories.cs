@@ -30,13 +30,13 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
                     return null;
                 PositioningElementInfo info = new PositioningElementInfo
                 {
-                    Id = element.Id.IntegerValue,
+                    Id = (int)element.Id.Value,
                     UniqueId = element.UniqueId,
                     Name = element.Name,
                     FamilyName = element?.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM)?.AsValueString(),
                     Category = element.Category?.Name,
                     BuiltInCategory = element.Category != null ?
-                        Enum.GetName(typeof(BuiltInCategory), element.Category.Id.IntegerValue) : null,
+                        Enum.GetName(typeof(BuiltInCategory), element.Category.Id.Value) : null,
                     ElementClass = element.GetType().Name,
                     BoundingBox = ElementInfoUtility.GetBoundingBoxInfo(element)
                 };
@@ -100,13 +100,13 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
                     return null;
                 AnnotationInfo info = new AnnotationInfo
                 {
-                    Id = element.Id.IntegerValue,
+                    Id = (int)element.Id.Value,
                     UniqueId = element.UniqueId,
                     Name = element.Name,
                     FamilyName = element?.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM)?.AsValueString(),
                     Category = element.Category?.Name,
                     BuiltInCategory = element.Category != null ?
-                        Enum.GetName(typeof(BuiltInCategory), element.Category.Id.IntegerValue) : null,
+                        Enum.GetName(typeof(BuiltInCategory), element.Category.Id.Value) : null,
                     ElementClass = element.GetType().Name,
                     BoundingBox = ElementInfoUtility.GetBoundingBoxInfo(element)
                 };
@@ -191,13 +191,13 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
                     return null;
                 GroupOrLinkInfo info = new GroupOrLinkInfo
                 {
-                    Id = element.Id.IntegerValue,
+                    Id = (int)element.Id.Value,
                     UniqueId = element.UniqueId,
                     Name = element.Name,
                     FamilyName = element?.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM)?.AsValueString(),
                     Category = element.Category?.Name,
                     BuiltInCategory = element.Category != null ?
-                        Enum.GetName(typeof(BuiltInCategory), element.Category.Id.IntegerValue) : null,
+                        Enum.GetName(typeof(BuiltInCategory), element.Category.Id.Value) : null,
                     ElementClass = element.GetType().Name,
                     BoundingBox = ElementInfoUtility.GetBoundingBoxInfo(element)
                 };
@@ -284,13 +284,13 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
                     // Return full ElementBasicInfo for detailed requests
                     ElementBasicInfo basicInfo = new ElementBasicInfo
                     {
-                        Id = element.Id.IntegerValue,
+                        Id = (int)element.Id.Value,
                         UniqueId = element.UniqueId,
                         Name = element.Name,
                         FamilyName = element?.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM)?.AsValueString(),
                         Category = element.Category?.Name,
                         BuiltInCategory = element.Category != null ?
-                            Enum.GetName(typeof(BuiltInCategory), element.Category.Id.IntegerValue) : null,
+                            Enum.GetName(typeof(BuiltInCategory), element.Category.Id.Value) : null,
                         BoundingBox = ElementInfoUtility.GetBoundingBoxInfo(element)
                     };
 
@@ -314,7 +314,7 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
                     // Return minimal info by default (token-efficient)
                     var minimalInfo = new ElementMinimalInfo
                     {
-                        Id = element.Id.IntegerValue,
+                        Id = (int)element.Id.Value,
                         Name = element.Name
                     };
 

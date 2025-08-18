@@ -25,7 +25,7 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
         /// </summary>
         public static Parameter GetParameter(Element element, string parameterName, BuiltInCategory category)
         {
-            System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Looking for '{parameterName}' on element {element.Id.IntegerValue} in category {category}");
+            System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Looking for '{parameterName}' on element {element.Id.Value} in category {category}");
             
             // Try category-specific mapping first
             if (Mappings.TryGetValue(category, out var mapping))

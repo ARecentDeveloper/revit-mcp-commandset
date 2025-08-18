@@ -137,7 +137,7 @@ namespace RevitMCPCommandSet.Services.Filtering
             // 3. Family symbol filter (only for element instances)
             if (!isElementType && settings.FilterFamilySymbolId > 0)
             {
-                ElementId symbolId = new ElementId(settings.FilterFamilySymbolId);
+                ElementId symbolId = new ElementId((long)settings.FilterFamilySymbolId);
                 // Check if the element exists and is a family type
                 Element symbolElement = doc.GetElement(symbolId);
                 if (symbolElement != null && symbolElement is FamilySymbol)
@@ -551,7 +551,7 @@ namespace RevitMCPCommandSet.Services.Filtering
                     {
                         if (int.TryParse(item?.ToString(), out int elementIdValue))
                         {
-                            elementIds.Add(new ElementId(elementIdValue));
+                            elementIds.Add(new ElementId((long)elementIdValue));
                         }
                         else
                         {
@@ -576,7 +576,7 @@ namespace RevitMCPCommandSet.Services.Filtering
                         return null;
                     }
                     
-                    elementIds.Add(new ElementId(elementIdValue));
+                    elementIds.Add(new ElementId((long)elementIdValue));
                 }
 
                 // For ElementId filtering, we typically only support "equals" operation

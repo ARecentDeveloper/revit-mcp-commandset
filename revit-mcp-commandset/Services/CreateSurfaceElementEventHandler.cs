@@ -64,7 +64,7 @@ namespace RevitMCPCommandSet.Services
                     FloorType floorType = null;
                     if (data.TypeId != -1 && data.TypeId != 0)
                     {
-                        ElementId typeELeId = new ElementId(data.TypeId);
+                        ElementId typeELeId = new ElementId((long)data.TypeId);
                         if (typeELeId != null)
                         {
                             Element typeEle = doc.GetElement(typeELeId);
@@ -72,12 +72,12 @@ namespace RevitMCPCommandSet.Services
                             {
                                 symbol = typeEle as FamilySymbol;
                                 // Get symbol's Category object and convert to BuiltInCategory enum
-                                builtInCategory = (BuiltInCategory)symbol.Category.Id.IntegerValue;
+                                builtInCategory = (BuiltInCategory)symbol.Category.Id.Value;
                             }
                             else if (typeEle != null && typeEle is FloorType)
                             {
                                 floorType = typeEle as FloorType;
-                                builtInCategory = (BuiltInCategory)floorType.Category.Id.IntegerValue;
+                                builtInCategory = (BuiltInCategory)floorType.Category.Id.Value;
                             }
                         }
                     }
@@ -146,7 +146,7 @@ namespace RevitMCPCommandSet.Services
                                 if (floor != null)
                                 {
                                     floor.get_Parameter(BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM).Set(baseOffset);
-                                    elementIds.Add(floor.Id.IntegerValue);
+                                    elementIds.Add((int)floor.Id.Value);
                                 }
                                 break;
                             default:
