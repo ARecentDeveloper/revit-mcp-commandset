@@ -49,6 +49,7 @@
         <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="$(RevitVersion).*" />
 		<PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="$(RevitVersion).*" />
 		<PackageReference Include="RevitMCPSDK" Version="$(RevitVersion).*" />
+		<PackageReference Include="EPPlus" Version="7.0.0" />
     </ItemGroup>
 
     <ItemGroup>
