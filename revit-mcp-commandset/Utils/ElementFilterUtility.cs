@@ -49,6 +49,18 @@ namespace RevitMCPCommandSet.Utils
             { "column", BuiltInCategory.OST_Columns },
             { "OST_Columns", BuiltInCategory.OST_Columns },
             
+            { "structural columns", BuiltInCategory.OST_StructuralColumns },
+            { "structural column", BuiltInCategory.OST_StructuralColumns },
+            { "OST_StructuralColumns", BuiltInCategory.OST_StructuralColumns },
+            
+            { "structural foundations", BuiltInCategory.OST_StructuralFoundation },
+            { "structural foundation", BuiltInCategory.OST_StructuralFoundation },
+            { "foundations", BuiltInCategory.OST_StructuralFoundation },
+            { "foundation", BuiltInCategory.OST_StructuralFoundation },
+            { "footings", BuiltInCategory.OST_StructuralFoundation },
+            { "footing", BuiltInCategory.OST_StructuralFoundation },
+            { "OST_StructuralFoundation", BuiltInCategory.OST_StructuralFoundation },
+            
             { "beams", BuiltInCategory.OST_StructuralFraming },
             { "beam", BuiltInCategory.OST_StructuralFraming },
             { "structural framing", BuiltInCategory.OST_StructuralFraming },

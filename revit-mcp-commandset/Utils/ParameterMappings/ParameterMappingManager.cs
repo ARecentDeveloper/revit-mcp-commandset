@@ -18,7 +18,11 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
             { BuiltInCategory.OST_Conduit, new ConduitParameterMapping() },
             { BuiltInCategory.OST_StructuralFraming, new StructuralFramingParameterMapping() },
             { BuiltInCategory.OST_Levels, new LevelParameterMapping() },
-            { BuiltInCategory.OST_Floors, new FloorParameterMapping() }
+            { BuiltInCategory.OST_Floors, new FloorParameterMapping() },
+            { BuiltInCategory.OST_StructuralColumns, new StructuralColumnParameterMapping() },
+            { BuiltInCategory.OST_StructuralFoundation, new StructuralFoundationParameterMapping() },
+            { BuiltInCategory.OST_Windows, new WindowParameterMapping() },
+            { BuiltInCategory.OST_Doors, new DoorParameterMapping() }
         };
 
         /// <summary>
