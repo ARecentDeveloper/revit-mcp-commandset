@@ -242,6 +242,7 @@ namespace RevitMCPCommandSet.Models.PACompliance
 
         public static class Sheets
         {
+            public const string ELEMENT_ID = "Element ID";
             public const string SHEET_NUMBER = "Sheet Number";
             public const string CURRENT_NAME = "Current Name";
             public const string SUGGESTED_NAME = "Suggested Name";
@@ -249,7 +250,7 @@ namespace RevitMCPCommandSet.Models.PACompliance
             public const string ERROR_MESSAGE = "Error Message";
 
             public static readonly string[] AllColumns = {
-                SHEET_NUMBER, CURRENT_NAME, SUGGESTED_NAME, STATUS, ERROR_MESSAGE
+                ELEMENT_ID, SHEET_NUMBER, CURRENT_NAME, SUGGESTED_NAME, STATUS, ERROR_MESSAGE
             };
         }
 

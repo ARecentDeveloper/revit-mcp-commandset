@@ -417,8 +417,8 @@ namespace RevitMCPCommandSet.Services
                         ErrorMessage = GetCellValue(worksheet, row, PAExcelColumns.Sheets.ERROR_MESSAGE)
                     };
 
-                    // Extract element ID from the first column (Element ID)
-                    rowData.ElementId = GetCellValue(worksheet, row, "Element ID");
+                    // Extract element ID from the Element ID column
+                    rowData.ElementId = GetCellValue(worksheet, row, PAExcelColumns.Sheets.ELEMENT_ID);
                     if (string.IsNullOrWhiteSpace(rowData.ElementId))
                     {
                         rowData.ElementId = ExtractElementId(worksheet, row, "ElementId") ?? "0";
