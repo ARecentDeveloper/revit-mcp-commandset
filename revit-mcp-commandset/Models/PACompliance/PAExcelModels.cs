@@ -32,7 +32,7 @@ namespace RevitMCPCommandSet.Models.PACompliance
             get
             {
                 return !string.IsNullOrWhiteSpace(SuggestedName) && 
-                       !SuggestedName.Equals(CurrentName, StringComparison.OrdinalIgnoreCase);
+                       !SuggestedName.Equals(CurrentName);
             }
         }
         
