@@ -31,6 +31,9 @@ namespace RevitMCPCommandSet.Utils
             
             { "floors", BuiltInCategory.OST_Floors },
             { "floor", BuiltInCategory.OST_Floors },
+            { "flooring", BuiltInCategory.OST_Floors },
+            { "slab", BuiltInCategory.OST_Floors },
+            { "slabs", BuiltInCategory.OST_Floors },
             { "OST_Floors", BuiltInCategory.OST_Floors },
             
             { "ceilings", BuiltInCategory.OST_Ceilings },
