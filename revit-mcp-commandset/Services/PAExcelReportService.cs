@@ -124,7 +124,7 @@ namespace RevitMCPCommandSet.Services
 
                 // Highlight rows where current name doesn't match suggested name
                 if (!string.IsNullOrEmpty(family.SuggestedName) && 
-                    !family.CurrentName.Equals(family.SuggestedName, StringComparison.OrdinalIgnoreCase))
+                    !family.CurrentName.Equals(family.SuggestedName))
                 {
                     using (var range = worksheet.Cells[row, 1, row, headers.Length])
                     {
@@ -187,7 +187,7 @@ namespace RevitMCPCommandSet.Services
 
                 // Highlight rows where current name doesn't match suggested name
                 if (!string.IsNullOrEmpty(family.SuggestedName) && 
-                    !family.CurrentName.Equals(family.SuggestedName, StringComparison.OrdinalIgnoreCase))
+                    !family.CurrentName.Equals(family.SuggestedName))
                 {
                     using (var range = worksheet.Cells[row, 1, row, headers.Length])
                     {
@@ -245,7 +245,7 @@ namespace RevitMCPCommandSet.Services
 
                 // Highlight rows where current name doesn't match suggested name
                 if (!string.IsNullOrEmpty(workset.SuggestedName) && 
-                    !workset.CurrentName.Equals(workset.SuggestedName, StringComparison.OrdinalIgnoreCase))
+                    !workset.CurrentName.Equals(workset.SuggestedName))
                 {
                     using (var range = worksheet.Cells[row, 1, row, headers.Length])
                     {
@@ -306,7 +306,7 @@ namespace RevitMCPCommandSet.Services
 
                 // Highlight rows where current name doesn't match suggested name
                 if (!string.IsNullOrEmpty(sheet.SuggestedName) && 
-                    !sheet.CurrentName.Equals(sheet.SuggestedName, StringComparison.OrdinalIgnoreCase))
+                    !sheet.CurrentName.Equals(sheet.SuggestedName))
                 {
                     using (var range = worksheet.Cells[row, 1, row, headers.Length])
                     {
@@ -423,7 +423,7 @@ namespace RevitMCPCommandSet.Services
             {
                 var needsAttention = reportData.AnnotationFamilies.Count(f => 
                     !string.IsNullOrEmpty(f.SuggestedName) && 
-                    !f.CurrentName.Equals(f.SuggestedName, StringComparison.OrdinalIgnoreCase));
+                    !f.CurrentName.Equals(f.SuggestedName));
                 var compliance = reportData.AnnotationFamilies.Count > 0 ? 
                     ((double)(reportData.AnnotationFamilies.Count - needsAttention) / reportData.AnnotationFamilies.Count * 100) : 100;
 
@@ -439,7 +439,7 @@ namespace RevitMCPCommandSet.Services
             {
                 var needsAttention = reportData.ModelFamilies.Count(f => 
                     !string.IsNullOrEmpty(f.SuggestedName) && 
-                    !f.CurrentName.Equals(f.SuggestedName, StringComparison.OrdinalIgnoreCase));
+                    !f.CurrentName.Equals(f.SuggestedName));
                 var compliance = reportData.ModelFamilies.Count > 0 ? 
                     ((double)(reportData.ModelFamilies.Count - needsAttention) / reportData.ModelFamilies.Count * 100) : 100;
 
@@ -455,7 +455,7 @@ namespace RevitMCPCommandSet.Services
             {
                 var needsAttention = reportData.Worksets.Count(w => 
                     !string.IsNullOrEmpty(w.SuggestedName) && 
-                    !w.CurrentName.Equals(w.SuggestedName, StringComparison.OrdinalIgnoreCase));
+                    !w.CurrentName.Equals(w.SuggestedName));
                 var compliance = reportData.Worksets.Count > 0 ? 
                     ((double)(reportData.Worksets.Count - needsAttention) / reportData.Worksets.Count * 100) : 100;
 
@@ -471,7 +471,7 @@ namespace RevitMCPCommandSet.Services
             {
                 var needsAttention = reportData.Sheets.Count(s => 
                     !string.IsNullOrEmpty(s.SuggestedName) && 
-                    !s.CurrentName.Equals(s.SuggestedName, StringComparison.OrdinalIgnoreCase));
+                    !s.CurrentName.Equals(s.SuggestedName));
                 var compliance = reportData.Sheets.Count > 0 ? 
                     ((double)(reportData.Sheets.Count - needsAttention) / reportData.Sheets.Count * 100) : 100;
 

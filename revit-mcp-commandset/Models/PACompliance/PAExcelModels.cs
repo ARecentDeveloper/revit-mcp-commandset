@@ -203,28 +203,32 @@ namespace RevitMCPCommandSet.Models.PACompliance
     {
         public static class AnnotationFamilies
         {
+            public const string ELEMENT_ID = "Element ID";
             public const string CATEGORY = "Category";
             public const string CURRENT_NAME = "Current Name";
+            public const string TYPE_NAME = "Type Name";
             public const string SUGGESTED_NAME = "Suggested Name";
             public const string STATUS = "Status";
             public const string ERROR_MESSAGE = "Error Message";
 
             public static readonly string[] AllColumns = {
-                CATEGORY, CURRENT_NAME, SUGGESTED_NAME, STATUS, ERROR_MESSAGE
+                ELEMENT_ID, CATEGORY, CURRENT_NAME, TYPE_NAME, SUGGESTED_NAME, STATUS, ERROR_MESSAGE
             };
         }
 
         public static class ModelFamilies
         {
+            public const string ELEMENT_ID = "Element ID";
             public const string CATEGORY = "Category";
-            public const string MANUFACTURER = "Manufacturer";
             public const string CURRENT_NAME = "Current Name";
+            public const string TYPE_NAME = "Type Name";
+            public const string MANUFACTURER = "Manufacturer";
             public const string SUGGESTED_NAME = "Suggested Name";
             public const string STATUS = "Status";
             public const string ERROR_MESSAGE = "Error Message";
 
             public static readonly string[] AllColumns = {
-                CATEGORY, MANUFACTURER, CURRENT_NAME, SUGGESTED_NAME, STATUS, ERROR_MESSAGE
+                ELEMENT_ID, CATEGORY, CURRENT_NAME, TYPE_NAME, MANUFACTURER, SUGGESTED_NAME, STATUS, ERROR_MESSAGE
             };
         }
 

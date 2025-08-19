@@ -243,8 +243,8 @@ namespace RevitMCPCommandSet.Services
                         ErrorMessage = GetCellValue(worksheet, row, PAExcelColumns.AnnotationFamilies.ERROR_MESSAGE)
                     };
 
-                    // Extract element ID from the first column (Element ID)
-                    rowData.ElementId = GetCellValue(worksheet, row, "Element ID");
+                    // Extract element ID from the Element ID column
+                    rowData.ElementId = GetCellValue(worksheet, row, PAExcelColumns.AnnotationFamilies.ELEMENT_ID);
                     if (string.IsNullOrWhiteSpace(rowData.ElementId))
                     {
                         rowData.ElementId = ExtractElementId(worksheet, row, "ElementId") ?? "0";
@@ -304,8 +304,12 @@ namespace RevitMCPCommandSet.Services
                         ErrorMessage = GetCellValue(worksheet, row, PAExcelColumns.ModelFamilies.ERROR_MESSAGE)
                     };
 
-                    // Extract element ID from hidden columns or derive from data
-                    rowData.ElementId = ExtractElementId(worksheet, row, "ElementId") ?? "0";
+                    // Extract element ID from the Element ID column
+                    rowData.ElementId = GetCellValue(worksheet, row, PAExcelColumns.ModelFamilies.ELEMENT_ID);
+                    if (string.IsNullOrWhiteSpace(rowData.ElementId))
+                    {
+                        rowData.ElementId = ExtractElementId(worksheet, row, "ElementId") ?? "0";
+                    }
 
                     if (!string.IsNullOrWhiteSpace(rowData.CurrentName))
                     {
