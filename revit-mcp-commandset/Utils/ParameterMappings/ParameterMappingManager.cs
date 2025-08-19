@@ -22,7 +22,8 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
             { BuiltInCategory.OST_StructuralColumns, new StructuralColumnParameterMapping() },
             { BuiltInCategory.OST_StructuralFoundation, new StructuralFoundationParameterMapping() },
             { BuiltInCategory.OST_Windows, new WindowParameterMapping() },
-            { BuiltInCategory.OST_Doors, new DoorParameterMapping() }
+            { BuiltInCategory.OST_Doors, new DoorParameterMapping() },
+            { BuiltInCategory.OST_Ceilings, new CeilingParameterMapping() }
         };
 
         /// <summary>
