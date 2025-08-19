@@ -25,7 +25,7 @@ namespace RevitMCPCommandSet.Services
         // Parameters
         private List<int> _elementIds;
         private string _parameterName;
-        private object _parameterValue;
+        private List<object> _parameterValues;
         private string _parameterValueType;
 
         /// <summary>
@@ -40,11 +40,11 @@ namespace RevitMCPCommandSet.Services
         /// <summary>
         /// Set parameters
         /// </summary>
-        public void SetParameters(List<int> elementIds, string parameterName, object parameterValue, string parameterValueType)
+        public void SetParameters(List<int> elementIds, string parameterName, List<object> parameterValues, string parameterValueType)
         {
             _elementIds = elementIds ?? new List<int>();
             _parameterName = parameterName ?? string.Empty;
-            _parameterValue = parameterValue;
+            _parameterValues = parameterValues ?? new List<object>();
             _parameterValueType = parameterValueType;
         }
 
@@ -62,9 +62,12 @@ namespace RevitMCPCommandSet.Services
                     int failureCount = 0;
                     var failureDetails = new List<string>();
                     
-                    // Process each element
-                    foreach (int elementId in _elementIds)
+                    // Process each element with its corresponding parameter value
+                    for (int i = 0; i < _elementIds.Count; i++)
                     {
+                        int elementId = _elementIds[i];
+                        object parameterValue = i < _parameterValues.Count ? _parameterValues[i] : null;
+                        
                         try
                         {
                             ElementId elemId = new ElementId((long)elementId);
@@ -78,7 +81,7 @@ namespace RevitMCPCommandSet.Services
                             }
                             
                             // Try to find and set the parameter
-                            bool success = SetElementParameter(element, _parameterName, _parameterValue, _parameterValueType);
+                            bool success = SetElementParameter(element, _parameterName, parameterValue, _parameterValueType);
                             
                             if (success)
                             {
@@ -100,10 +103,11 @@ namespace RevitMCPCommandSet.Services
                     trans.Commit();
 
                     // Set results
+                    string batchType = _parameterValues.Distinct().Count() == 1 ? "single value" : "individual values";
                     Results = new SetElementParameterResult
                     {
                         Success = true,
-                        Message = $"Operation completed. {successCount} elements updated successfully, {failureCount} failed.",
+                        Message = $"Batch operation completed. Set parameter '{_parameterName}' with {batchType} on {_elementIds.Count} elements. {successCount} successful, {failureCount} failed.",
                         SuccessCount = successCount,
                         FailureCount = failureCount,
                         Failures = failureDetails
@@ -243,6 +247,9 @@ namespace RevitMCPCommandSet.Services
                         case "boolean":
                             storageType = StorageType.Integer; // Boolean is stored as integer in Revit
                             break;
+                        case "elementid":
+                            storageType = StorageType.ElementId;
+                            break;
                     }
                 }
                 
@@ -288,6 +295,30 @@ namespace RevitMCPCommandSet.Services
                         else if (bool.TryParse(parameterValue?.ToString() ?? "false", out boolValue))
                         {
                             return param.Set(boolValue ? 1 : 0);
+                        }
+                        break;
+                        
+                    case StorageType.ElementId:
+                        // Handle ElementId parameters (like Level, Type, etc.)
+                        if (parameterValue is int elementIdInt)
+                        {
+                            ElementId elementId = new ElementId((long)elementIdInt);
+                            return param.Set(elementId);
+                        }
+                        else if (parameterValue is long elementIdLong)
+                        {
+                            ElementId elementId = new ElementId(elementIdLong);
+                            return param.Set(elementId);
+                        }
+                        else if (int.TryParse(parameterValue?.ToString() ?? "0", out int elementIdValue))
+                        {
+                            ElementId elementId = new ElementId((long)elementIdValue);
+                            return param.Set(elementId);
+                        }
+                        else if (long.TryParse(parameterValue?.ToString() ?? "0", out long elementIdValueLong))
+                        {
+                            ElementId elementId = new ElementId(elementIdValueLong);
+                            return param.Set(elementId);
                         }
                         break;
                 }

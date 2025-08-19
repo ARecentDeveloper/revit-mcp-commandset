@@ -64,7 +64,7 @@ namespace RevitMCPCommandSet.Commands
                 }
                 
                 string parameterName = dataParams?["parameterName"]?.ToString();
-                object parameterValue = dataParams?["parameterValue"];
+                var parameterValueToken = dataParams?["parameterValue"];
                 string parameterValueType = dataParams?["parameterValueType"]?.ToString();
 
                 // Validate required parameters
@@ -74,8 +74,31 @@ namespace RevitMCPCommandSet.Commands
                 if (string.IsNullOrEmpty(parameterName))
                     throw new ArgumentException("Parameter name is required");
 
+                // Parse parameter values (single value or array)
+                List<object> parameterValues = new List<object>();
+                
+                if (parameterValueToken != null && parameterValueToken.Type == JTokenType.Array)
+                {
+                    // Handle array of values
+                    var valueArray = parameterValueToken.ToObject<List<object>>();
+                    if (valueArray.Count != elementIds.Count)
+                    {
+                        throw new ArgumentException($"Parameter value array length ({valueArray.Count}) must match element ID array length ({elementIds.Count})");
+                    }
+                    parameterValues = valueArray;
+                }
+                else
+                {
+                    // Handle single value - apply to all elements
+                    object singleValue = parameterValueToken?.ToObject<object>();
+                    for (int i = 0; i < elementIds.Count; i++)
+                    {
+                        parameterValues.Add(singleValue);
+                    }
+                }
+
                 // Set parameters for the event handler
-                _handler.SetParameters(elementIds, parameterName, parameterValue, parameterValueType);
+                _handler.SetParameters(elementIds, parameterName, parameterValues, parameterValueType);
 
                 // Reset the event handler before triggering
                 _handler.Reset();
