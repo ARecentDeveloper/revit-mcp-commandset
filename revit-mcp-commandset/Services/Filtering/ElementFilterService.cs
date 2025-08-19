@@ -220,6 +220,10 @@ namespace RevitMCPCommandSet.Services.Filtering
                     }
                 }
             }
+            // Debug: Count elements before applying category filter
+            var elementsBeforeFilter = collector.ToElements();
+            System.Diagnostics.Trace.WriteLine($"Debug: Found {elementsBeforeFilter.Count} elements before category filtering (isElementType={isElementType})");
+            
             // Apply combined filter
             if (filters.Count > 0)
             {
@@ -232,7 +236,32 @@ namespace RevitMCPCommandSet.Services.Filtering
                     System.Diagnostics.Trace.WriteLine($"Applied a combined filter with {filters.Count} conditions (logical AND)");
                 }
             }
-            return collector.ToElements().ToList();
+            
+            var finalElements = collector.ToElements().ToList();
+            System.Diagnostics.Trace.WriteLine($"Debug: Found {finalElements.Count} elements after all filtering");
+            
+            // Debug: If looking for levels specifically, let's see what we find
+            if (!string.IsNullOrWhiteSpace(settings.FilterCategory) && settings.FilterCategory.Equals("OST_Levels", StringComparison.OrdinalIgnoreCase))
+            {
+                System.Diagnostics.Trace.WriteLine($"Debug: Level filtering - Before category filter: {elementsBeforeFilter.Count}, After: {finalElements.Count}");
+                
+                // Let's try a different approach for levels
+                if (finalElements.Count == 0)
+                {
+                    System.Diagnostics.Trace.WriteLine("Debug: Trying alternative level collection approach...");
+                    var allElementsCollector = new FilteredElementCollector(doc);
+                    var allElements = allElementsCollector.ToElements();
+                    var levelElements = allElements.Where(e => e.Category?.Name == "Levels").ToList();
+                    System.Diagnostics.Trace.WriteLine($"Debug: Found {levelElements.Count} level elements using alternative approach");
+                    
+                    foreach (var level in levelElements.Take(5))
+                    {
+                        System.Diagnostics.Trace.WriteLine($"Debug: Level found - ID: {level.Id}, Name: {level.Name}, Category: {level.Category?.Name}, IsElementType: {level is ElementType}");
+                    }
+                }
+            }
+            
+            return finalElements;
         }
 
         /// <summary>

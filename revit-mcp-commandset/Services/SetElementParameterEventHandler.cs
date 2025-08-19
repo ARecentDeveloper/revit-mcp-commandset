@@ -228,28 +228,26 @@ namespace RevitMCPCommandSet.Services
                     }
                 }
                 
-                // Determine value type if not specified
+                // Always use the parameter's actual storage type - this is critical for ElementId parameters
                 StorageType storageType = param.StorageType;
+                
+                // Only override storage type for specific cases where the user explicitly specifies a different type
                 if (!string.IsNullOrEmpty(_parameterValueType))
                 {
-                    // Use specified type hint
                     switch (_parameterValueType.ToLower())
                     {
-                        case "string":
-                            storageType = StorageType.String;
-                            break;
-                        case "double":
-                            storageType = StorageType.Double;
-                            break;
-                        case "integer":
-                            storageType = StorageType.Integer;
-                            break;
                         case "boolean":
-                            storageType = StorageType.Integer; // Boolean is stored as integer in Revit
+                            // Boolean values are stored as integers in Revit
+                            if (storageType == StorageType.Integer)
+                            {
+                                storageType = StorageType.Integer;
+                            }
                             break;
                         case "elementid":
                             storageType = StorageType.ElementId;
                             break;
+                        // For other types, trust the parameter's actual storage type
+                        // This prevents issues where Claude specifies "Integer" for ElementId parameters
                     }
                 }
                 

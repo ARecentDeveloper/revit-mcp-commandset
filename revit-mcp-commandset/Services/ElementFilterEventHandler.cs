@@ -52,8 +52,8 @@ namespace RevitMCPCommandSet.Services
                 
                 // Get the Id of the element that meets the specified conditions
                 var elementList = ElementFilterService.GetFilteredElements(doc, FilterSetting);
-                if (elementList == null || !elementList.Any())
-                    throw new Exception("The specified element was not found in the project. Please check if the filter settings are correct");
+                if (elementList == null)
+                    elementList = new List<Element>();
                 
                 // Maximum number of filters limit
                 string limitMessage = "";
@@ -109,7 +109,9 @@ namespace RevitMCPCommandSet.Services
                 else
                 {
                     // Return tabular format (default)
-                    string message = $"Successfully obtained {elementInfoList.Count} element information in optimized tabular format. Elements grouped by parameter values for efficient processing" + limitMessage;
+                    string message = elementInfoList.Count > 0 
+                        ? $"Successfully obtained {elementInfoList.Count} element information in optimized tabular format. Elements grouped by parameter values for efficient processing" + limitMessage
+                        : $"No elements found matching the specified filter criteria. Filter applied: {GetFilterDescription(FilterSetting)}";
                     Result = ElementFilterResponse.CreateTabular(elementInfoList, message);
                 }
             }
@@ -159,6 +161,34 @@ namespace RevitMCPCommandSet.Services
             }
             
             return requestedParams.Any() ? requestedParams : null;
+        }
+
+        /// <summary>
+        /// Get a description of the applied filters for debugging
+        /// </summary>
+        private string GetFilterDescription(FilterSetting filterSetting)
+        {
+            var filters = new List<string>();
+            
+            if (!string.IsNullOrWhiteSpace(filterSetting.FilterCategory))
+                filters.Add($"Category={filterSetting.FilterCategory}");
+            
+            if (!string.IsNullOrWhiteSpace(filterSetting.FilterElementType))
+                filters.Add($"ElementType={filterSetting.FilterElementType}");
+            
+            if (filterSetting.FilterFamilySymbolId > 0)
+                filters.Add($"FamilySymbolId={filterSetting.FilterFamilySymbolId}");
+            
+            if (filterSetting.ParameterFilters?.Count > 0)
+                filters.Add($"ParameterFilters={filterSetting.ParameterFilters.Count}");
+            
+            filters.Add($"IncludeTypes={filterSetting.IncludeTypes}");
+            filters.Add($"IncludeInstances={filterSetting.IncludeInstances}");
+            
+            if (filterSetting.FilterVisibleInCurrentView)
+                filters.Add("VisibleInCurrentView=true");
+            
+            return string.Join(", ", filters);
         }
 
         /// <summary>
