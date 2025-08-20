@@ -25,7 +25,8 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
             { BuiltInCategory.OST_Doors, new DoorParameterMapping() },
             { BuiltInCategory.OST_Ceilings, new CeilingParameterMapping() },
             { BuiltInCategory.OST_Roofs, new RoofParameterMapping() },
-            { BuiltInCategory.OST_Grids, new GridParameterMapping() }
+            { BuiltInCategory.OST_Grids, new GridParameterMapping() },
+            { BuiltInCategory.OST_VolumeOfInterest, new ScopeBoxParameterMapping() }
         };
 
         /// <summary>
