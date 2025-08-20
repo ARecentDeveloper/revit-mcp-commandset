@@ -122,20 +122,40 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
         /// </summary>
         public static Parameter GetSharedParameter(Element element, string parameterName)
         {
+            DebugLogger.Log("SHARED_PARAM", $"GetSharedParameter called: element={element.Id.Value}, param='{parameterName}'");
+            
             // Check aliases first
             string actualParamName = CommonAliases.ContainsKey(parameterName) ? CommonAliases[parameterName] : parameterName;
+            DebugLogger.Log("SHARED_PARAM", $"After alias check: '{parameterName}' -> '{actualParamName}'");
             
             // Try built-in parameter mapping
             if (CommonParameters.TryGetValue(actualParamName, out var builtInParam))
             {
+                DebugLogger.Log("SHARED_PARAM", $"Found '{actualParamName}' in CommonParameters as {builtInParam}");
+                
                 var param = GetBuiltInParameter(element, builtInParam);
-                if (param != null) return param;
+                if (param != null) 
+                {
+                    DebugLogger.Log("SHARED_PARAM", $"GetBuiltInParameter found parameter '{actualParamName}' - SUCCESS");
+                    return param;
+                }
+                DebugLogger.Log("SHARED_PARAM", $"GetBuiltInParameter failed for '{actualParamName}', trying type parameter");
                 
                 // Try type parameter
                 param = GetBuiltInParameterFromType(element, builtInParam);
-                if (param != null) return param;
+                if (param != null) 
+                {
+                    DebugLogger.Log("SHARED_PARAM", $"GetBuiltInParameterFromType found parameter '{actualParamName}' - SUCCESS");
+                    return param;
+                }
+                DebugLogger.Log("SHARED_PARAM", $"GetBuiltInParameterFromType also failed for '{actualParamName}'");
+            }
+            else
+            {
+                DebugLogger.Log("SHARED_PARAM", $"Parameter '{actualParamName}' not found in CommonParameters dictionary");
             }
 
+            DebugLogger.Log("SHARED_PARAM", $"SharedParameterMapping failed to find '{parameterName}' - returning NULL");
             return null;
         }
 

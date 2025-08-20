@@ -35,34 +35,54 @@ namespace RevitMCPCommandSet.Utils.ParameterMappings
         public static Parameter GetParameter(Element element, string parameterName, BuiltInCategory category)
         {
             System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Looking for '{parameterName}' on element {element.Id.Value} in category {category}");
+            DebugLogger.Log("PARAM_MGR", $"GetParameter called: element={element.Id.Value}, param='{parameterName}', category={category}");
             
             // Try category-specific mapping first
             if (Mappings.TryGetValue(category, out var mapping))
             {
                 System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Found mapping for {category}");
+                DebugLogger.Log("PARAM_MGR", $"Found specific mapping for {category}, calling mapping.GetParameter()");
                 var param = mapping.GetParameter(element, parameterName);
                 if (param != null) 
                 {
                     System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Found parameter '{parameterName}' via mapping");
+                    DebugLogger.Log("PARAM_MGR", $"Specific mapping found parameter '{parameterName}' - SUCCESS");
                     return param;
                 }
                 System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Parameter '{parameterName}' not found via mapping");
+                DebugLogger.Log("PARAM_MGR", $"Specific mapping could not find parameter '{parameterName}'");
             }
             else
             {
                 System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: No mapping found for category {category}");
+                DebugLogger.Log("PARAM_MGR", $"No specific mapping for {category}, falling back to generic lookup");
             }
 
-            // Fallback to generic parameter lookup
+            // For unmapped categories, try SharedParameterMapping before generic lookup
+            System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Trying SharedParameterMapping for '{parameterName}'");
+            DebugLogger.Log("PARAM_MGR", $"Calling SharedParameterMapping.GetSharedParameter for '{parameterName}'");
+            var sharedParam = SharedParameterMapping.GetSharedParameter(element, parameterName);
+            if (sharedParam != null)
+            {
+                System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Found parameter '{parameterName}' via SharedParameterMapping");
+                DebugLogger.Log("PARAM_MGR", $"SharedParameterMapping found parameter '{parameterName}' - SUCCESS");
+                return sharedParam;
+            }
+            DebugLogger.Log("PARAM_MGR", $"SharedParameterMapping failed for '{parameterName}', trying generic lookup");
+
+            // Final fallback to generic parameter lookup
             System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Trying generic lookup for '{parameterName}'");
+            DebugLogger.Log("PARAM_MGR", $"Calling GetParameterGeneric for '{parameterName}'");
             var genericParam = GetParameterGeneric(element, parameterName);
             if (genericParam != null)
             {
                 System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Found parameter '{parameterName}' via generic lookup");
+                DebugLogger.Log("PARAM_MGR", $"Generic lookup found parameter '{parameterName}' - SUCCESS");
             }
             else
             {
                 System.Diagnostics.Trace.WriteLine($"ParameterMappingManager.GetParameter: Parameter '{parameterName}' not found anywhere");
+                DebugLogger.Log("PARAM_MGR", $"Generic lookup failed for '{parameterName}' - TOTAL FAILURE");
             }
             return genericParam;
         }

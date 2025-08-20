@@ -217,12 +217,13 @@ namespace RevitMCPCommandSet.Utils
                 
                 if (!ParameterMappingManager.HasMapping(bic)) 
                 {
-                    System.Diagnostics.Trace.WriteLine($"GetBasicParameters: No mapping found for category {bic}");
-                    return list;
+                    System.Diagnostics.Trace.WriteLine($"GetBasicParameters: No specific mapping found for category {bic}, using shared parameters only");
                 }
 
-                // Basic parameters that are always useful
-                var basicParams = new List<string> { "length", "height", "width", "mark", "level", "reference level" };
+                // For unmapped categories, use only shared basic parameters
+                var basicParams = !ParameterMappingManager.HasMapping(bic) 
+                    ? new List<string> { "mark", "comments", "type name", "family name", "phase created", "phase demolished" }
+                    : new List<string> { "length", "height", "width", "mark", "level", "reference level" };
                 System.Diagnostics.Trace.WriteLine($"GetBasicParameters: Looking for basic parameters: {string.Join(", ", basicParams)}");
                 
                 foreach (var name in basicParams)
@@ -279,10 +280,10 @@ namespace RevitMCPCommandSet.Utils
                 var bic = (BuiltInCategory)element.Category.Id.Value;
                 System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Element {element.Id.Value} ({element.Name}), Category: {bic}");
                 
-                if (!ParameterMappingManager.HasMapping(bic)) 
+                bool hasSpecificMapping = ParameterMappingManager.HasMapping(bic);
+                if (!hasSpecificMapping) 
                 {
-                    System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: No mapping found for category {bic}");
-                    return list;
+                    System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: No specific mapping found for category {bic}, will use SharedParameterMapping and generic lookup");
                 }
 
                 System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Requesting parameters: {string.Join(", ", parameterNames)}");
@@ -321,11 +322,64 @@ namespace RevitMCPCommandSet.Utils
                     }
 
                     System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Looking for parameter '{name}'");
+                    DebugLogger.Log("PARAM_LOOKUP", $"=== Searching for parameter '{name}' on element {element.Id.Value} (category: {bic}) ===");
+                    
                     var param = ParameterMappingManager.GetParameter(element, name, bic);
                     
                     if (param == null)
                     {
                         System.Diagnostics.Trace.WriteLine($"GetSpecificParameters: Parameter '{name}' not found");
+                        DebugLogger.Log("PARAM_LOOKUP", $"ParameterMappingManager.GetParameter returned NULL for '{name}'");
+                        
+                        // Let's try direct lookup for debugging
+                        DebugLogger.Log("PARAM_LOOKUP", "Attempting direct parameter lookup for debugging...");
+                        var directParam = element.LookupParameter(name);
+                        DebugLogger.Log("PARAM_LOOKUP", $"Direct element.LookupParameter('{name}') result: {(directParam != null ? "FOUND" : "NULL")}");
+                        
+                        if (directParam != null)
+                        {
+                            DebugLogger.Log("PARAM_LOOKUP", $"Direct lookup found parameter - StorageType: {directParam.StorageType}, HasValue: {directParam.HasValue}");
+                            if (directParam.HasValue)
+                            {
+                                try
+                                {
+                                    var directValue = directParam.AsValueString() ?? directParam.AsString() ?? directParam.AsDouble().ToString();
+                                    DebugLogger.Log("PARAM_LOOKUP", $"Direct parameter value: '{directValue}'");
+                                }
+                                catch (Exception ex)
+                                {
+                                    DebugLogger.Log("PARAM_LOOKUP", $"Error reading direct parameter value: {ex.Message}");
+                                }
+                            }
+                        }
+                        
+                        // Try type parameter
+                        try
+                        {
+                            ElementType elementType = element.Document.GetElement(element.GetTypeId()) as ElementType;
+                            if (elementType != null)
+                            {
+                                var typeParam = elementType.LookupParameter(name);
+                                DebugLogger.Log("PARAM_LOOKUP", $"Type parameter lookup('{name}') result: {(typeParam != null ? "FOUND" : "NULL")}");
+                                if (typeParam != null && typeParam.HasValue)
+                                {
+                                    try
+                                    {
+                                        var typeValue = typeParam.AsValueString() ?? typeParam.AsString() ?? typeParam.AsDouble().ToString();
+                                        DebugLogger.Log("PARAM_LOOKUP", $"Type parameter value: '{typeValue}'");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLogger.Log("PARAM_LOOKUP", $"Error reading type parameter value: {ex.Message}");
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            DebugLogger.Log("PARAM_LOOKUP", $"Error during type parameter lookup: {ex.Message}");
+                        }
+                        
                         // Add parameter as not found
                         list.Add(new ParameterInfo 
                         { 
@@ -404,12 +458,32 @@ namespace RevitMCPCommandSet.Utils
             try
             {
                 var bic = (BuiltInCategory)element.Category.Id.Value;
-                if (!ParameterMappingManager.HasMapping(bic)) return list;
+                if (!ParameterMappingManager.HasMapping(bic)) 
+                {
+                    // For unmapped categories, use shared parameter names instead
+                    var names = SharedParameterMapping.GetCommonParameterNames();
+                    if (names == null || names.Count == 0) return list;
 
-                var names = ParameterMappingManager.GetCommonParameterNames(bic);
-                if (names == null || names.Count == 0) return list;
+                    foreach (var name in names)
+                    {
+                        var param = ParameterMappingManager.GetParameter(element, name, bic);
+                        if (param == null) continue;
 
-                foreach (var name in names)
+                        var paramInfo = CreateParameterInfo(param, name);
+                        
+                        // For mapped parameters, only include non-empty ones to keep response clean
+                        if (string.IsNullOrEmpty(paramInfo.EmptyReason))
+                        {
+                            list.Add(paramInfo);
+                        }
+                    }
+                    return list;
+                }
+
+                var mappedNames = ParameterMappingManager.GetCommonParameterNames(bic);
+                if (mappedNames == null || mappedNames.Count == 0) return list;
+
+                foreach (var name in mappedNames)
                 {
                     var param = ParameterMappingManager.GetParameter(element, name, bic);
                     if (param == null) continue;

@@ -6,9 +6,65 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RevitMCPSDK.API.Interfaces;
 using RevitMCPCommandSet.Utils.ParameterMappings;
+using RevitMCPCommandSet.Utils.ParameterResolution;
 
 namespace RevitMCPCommandSet.Services
 {
+    /// <summary>
+    /// Fallback parameter mapping for categories without specific mappings.
+    /// Only uses SharedParameterMapping and generic parameter lookup.
+    /// </summary>
+    internal class UnmappedCategoryFallback : ParameterMappingBase
+    {
+        private readonly BuiltInCategory _category;
+
+        public UnmappedCategoryFallback(BuiltInCategory category)
+        {
+            _category = category;
+        }
+
+        public override BuiltInCategory Category => _category;
+
+        protected override Parameter GetCategorySpecificParameter(Element element, string parameterName)
+        {
+            // For unmapped categories, only use generic parameter lookup
+            var genericParam = element.LookupParameter(parameterName);
+            if (genericParam != null) return genericParam;
+
+            // Try type parameter
+            ElementType elementType = element.Document.GetElement(element.GetTypeId()) as ElementType;
+            return elementType?.LookupParameter(parameterName);
+        }
+
+        public override object ConvertValue(string parameterName, object inputValue)
+        {
+            // No specific conversions for unmapped categories
+            return inputValue;
+        }
+
+        public override List<string> GetCommonParameterNames()
+        {
+            // Return only shared parameter names for unmapped categories
+            return SharedParameterMapping.GetCommonParameterNames();
+        }
+
+        public override Dictionary<string, string> GetParameterAliases()
+        {
+            // Return only shared parameter aliases for unmapped categories
+            return SharedParameterMapping.CommonAliases;
+        }
+
+        public override bool HasParameter(string parameterName)
+        {
+            // Check if it's a shared parameter or alias
+            string actualParamName = SharedParameterMapping.CommonAliases.ContainsKey(parameterName) 
+                ? SharedParameterMapping.CommonAliases[parameterName] 
+                : parameterName;
+            
+            return SharedParameterMapping.IsSharedParameter(actualParamName);
+        }
+    }
+
     public class ResolveParameterNamesEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
     {
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
@@ -50,18 +106,16 @@ namespace RevitMCPCommandSet.Services
                     return;
                 }
 
-                // Get parameter mapping for this category
-                if (!ParameterMappingManager.HasMapping(category))
-                {
-                    Results = new
-                    {
-                        success = false,
-                        message = $"No parameter mapping found for category: {_filterCategory}. Available categories with mappings: {string.Join(", ", ParameterMappingManager.GetAvailableCategories())}"
-                    };
-                    return;
-                }
-
+                // Get parameter mapping for this category (if available)
                 var mapping = ParameterMappingManager.GetMapping(category);
+                
+                // For unmapped categories, we'll create a fallback mapping that only uses SharedParameterMapping
+                bool isUnmappedCategory = mapping == null;
+                if (isUnmappedCategory)
+                {
+                    System.Diagnostics.Trace.WriteLine($"ResolveParameterNames: No specific mapping for {_filterCategory}, using SharedParameterMapping only");
+                    mapping = new UnmappedCategoryFallback(category);
+                }
                 var resolvedParameters = new List<object>();
                 var resolvedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -287,13 +341,13 @@ namespace RevitMCPCommandSet.Services
 
         private List<string> GetSpecialCaseMatches(string userTerm)
         {
-            // Get cross-category special cases
-            var specialCases = CrossCategoryParameterAliases.GetSpecialCases();
+            // Get cross-category expansion rules
+            var expansionRules = ParameterExpansionRules.GetExpansionRules();
 
-            if (specialCases.ContainsKey(userTerm))
+            if (expansionRules.ContainsKey(userTerm))
             {
-                System.Diagnostics.Trace.WriteLine($"GetSpecialCaseMatches: Found special case for '{userTerm}' → [{string.Join(", ", specialCases[userTerm])}]");
-                return specialCases[userTerm];
+                System.Diagnostics.Trace.WriteLine($"GetSpecialCaseMatches: Found expansion rule for '{userTerm}' → [{string.Join(", ", expansionRules[userTerm])}]");
+                return expansionRules[userTerm];
             }
 
             return new List<string>();
