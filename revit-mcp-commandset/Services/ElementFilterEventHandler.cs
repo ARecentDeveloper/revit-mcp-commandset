@@ -55,6 +55,8 @@ namespace RevitMCPCommandSet.Services
                 if (elementList == null)
                     elementList = new List<Element>();
                 
+                DebugLogger.Log("HANDLER", $"ElementFilterEventHandler received {elementList.Count} elements from ElementFilterService");
+                
                 // Maximum number of filters limit
                 string limitMessage = "";
                 if (FilterSetting.MaxElements > 0)
@@ -75,29 +77,48 @@ namespace RevitMCPCommandSet.Services
                 
                 // Create element info objects
                 var elementInfoList = new List<ElementMinimalInfo>();
+                DebugLogger.Log("HANDLER", $"Starting to create element info for {elementList.Count} elements");
+                
                 foreach (var element in elementList)
                 {
+                    DebugLogger.Log("HANDLER", $"Processing element {element.Id} ({element.Name ?? "null"})");
+                    
                     var info = registry.CreateInfo(doc, element, detailLevel, requestedParameters);
                     if (info is ElementMinimalInfo minimalInfo)
                     {
+                        DebugLogger.Log("HANDLER", $"Created ElementMinimalInfo for element {element.Id}");
                         elementInfoList.Add(minimalInfo);
                     }
                     else if (info != null)
                     {
+                        DebugLogger.Log("HANDLER", $"Converting {info.GetType().Name} to ElementMinimalInfo for element {element.Id}");
                         // Convert other types to ElementMinimalInfo for consistency
                         var converted = ConvertToElementMinimalInfo(info);
                         if (converted != null)
                         {
+                            DebugLogger.Log("HANDLER", $"Successfully converted to ElementMinimalInfo for element {element.Id}");
                             elementInfoList.Add(converted);
                         }
+                        else
+                        {
+                            DebugLogger.Log("HANDLER", $"Failed to convert to ElementMinimalInfo for element {element.Id}");
+                        }
+                    }
+                    else
+                    {
+                        DebugLogger.Log("HANDLER", $"registry.CreateInfo returned null for element {element.Id}");
                     }
                 }
+                
+                DebugLogger.Log("HANDLER", $"Final elementInfoList has {elementInfoList.Count} items");
 
                 // Determine response format
                 string responseFormat = FilterSetting.ResponseFormat ?? "tabular";
+                DebugLogger.Log("HANDLER", $"Response format: {responseFormat}");
                 
                 if (responseFormat.Equals("standard", StringComparison.OrdinalIgnoreCase))
                 {
+                    DebugLogger.Log("HANDLER", "Creating standard format response");
                     // Return standard format (backward compatibility)
                     Result = new AIResult<List<object>>
                     {
@@ -105,18 +126,24 @@ namespace RevitMCPCommandSet.Services
                         Message = $"Successfully obtained {elementInfoList.Count} element information. The detailed information is stored in the Response property" + limitMessage,
                         Response = elementInfoList.Cast<object>().ToList(),
                     };
+                    DebugLogger.Log("HANDLER", $"Standard response created with {elementInfoList.Count} elements");
                 }
                 else
                 {
+                    DebugLogger.Log("HANDLER", "Creating tabular format response");
                     // Return tabular format (default)
                     string message = elementInfoList.Count > 0 
                         ? $"Successfully obtained {elementInfoList.Count} element information in optimized tabular format. Elements grouped by parameter values for efficient processing" + limitMessage
                         : $"No elements found matching the specified filter criteria. Filter applied: {GetFilterDescription(FilterSetting)}";
+                    
+                    DebugLogger.Log("HANDLER", $"Calling ElementFilterResponse.CreateTabular with {elementInfoList.Count} elements");
                     Result = ElementFilterResponse.CreateTabular(elementInfoList, message);
+                    DebugLogger.Log("HANDLER", "Tabular response created");
                 }
             }
             catch (Exception ex)
             {
+                DebugLogger.LogException("HANDLER", ex);
                 Result = ElementFilterResponse.CreateError($"Error getting element information: {ex.Message}");
             }
             finally
@@ -217,8 +244,17 @@ namespace RevitMCPCommandSet.Services
                 case ElementMinimalInfo minimalInfo:
                     return minimalInfo;
                 
+                case PositioningElementInfo positioningInfo:
+                    DebugLogger.Log("CONVERT", $"Converting legacy PositioningElementInfo for element {positioningInfo.Id}");
+                    return new ElementMinimalInfo
+                    {
+                        Id = positioningInfo.Id,
+                        Name = positioningInfo.Name,
+                        Parameters = new List<ParameterInfo>()
+                    };
+                
                 default:
-                    System.Diagnostics.Trace.WriteLine($"Warning: Unknown element info type: {elementInfo?.GetType().Name}");
+                    DebugLogger.Log("CONVERT", $"Unknown element info type: {elementInfo?.GetType().Name}");
                     return null;
             }
         }

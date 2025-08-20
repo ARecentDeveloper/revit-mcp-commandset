@@ -28,50 +28,128 @@ namespace RevitMCPCommandSet.Services.ElementInfoFactories
             {
                 if (element == null)
                     return null;
-                PositioningElementInfo info = new PositioningElementInfo
-                {
-                    Id = (int)element.Id.Value,
-                    UniqueId = element.UniqueId,
-                    Name = element.Name,
-                    FamilyName = element?.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM)?.AsValueString(),
-                    Category = element.Category?.Name,
-                    BuiltInCategory = element.Category != null ?
-                        Enum.GetName(typeof(BuiltInCategory), element.Category.Id.Value) : null,
-                    ElementClass = element.GetType().Name,
-                    BoundingBox = ElementInfoUtility.GetBoundingBoxInfo(element)
-                };
 
-                // Process level
-                if (element is Level level)
+                // Check if detailed info is specifically requested
+                bool needsDetailedInfo = detailLevel?.ToLower() == "detailed" || 
+                                        detailLevel?.ToLower() == "full" ||
+                                        NeedsDetailedInfo(requestedParameters);
+
+                if (needsDetailedInfo)
                 {
-                    // Convert to mm
-                    info.Elevation = level.Elevation * 304.8;
+                    // Return full PositioningElementInfo for detailed requests
+                    return CreateDetailedPositioningInfo(doc, element, requestedParameters);
                 }
-                // Process grid
-                else if (element is Grid grid)
+                else
                 {
-                    Curve curve = grid.Curve;
-                    if (curve != null)
-                    {
-                        XYZ start = curve.GetEndPoint(0);
-                        XYZ end = curve.GetEndPoint(1);
-                        // Create JZLine (convert to mm)
-                        info.GridLine = new JZLine(
-                            start.X * 304.8, start.Y * 304.8, start.Z * 304.8,
-                            end.X * 304.8, end.Y * 304.8, end.Z * 304.8);
-                    }
+                    // Return minimal info by default (token-efficient) with parameters
+                    return CreateMinimalPositioningInfo(doc, element, requestedParameters);
                 }
-
-                // Get level information
-                info.Level = ElementInfoUtility.GetElementLevel(doc, element);
-
-                return info;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Trace.WriteLine($"Error creating spatial positioning element information: {ex.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Create minimal positioning element info with requested parameters
+        /// </summary>
+        private ElementMinimalInfo CreateMinimalPositioningInfo(Document doc, Element element, List<string> requestedParameters)
+        {
+            var minimalInfo = new ElementMinimalInfo
+            {
+                Id = (int)element.Id.Value,
+                Name = element.Name,
+                Parameters = new List<ParameterInfo>()
+            };
+
+            // Add basic positioning parameters 
+            if (element is Level level)
+            {
+                // Add elevation parameter for levels
+                minimalInfo.Parameters.Add(new ParameterInfo
+                {
+                    Name = "elevation",
+                    AsValueString = (level.Elevation).ToString("F3") + " ft",
+                    RawValue = level.Elevation // Already in feet (Revit internal units)
+                });
+            }
+            else if (element is Grid grid)
+            {
+                // Add basic grid parameters (could add grid line info, etc.)
+                // For now, just add the name - more parameters will come from parameter mapping
+                // The grid line geometry is handled in detailed info if needed
+            }
+
+            // Add requested parameters using parameter mapping system
+            if (requestedParameters != null && requestedParameters.Any())
+            {
+                var additionalParameters = ElementInfoUtility.GetSpecificParameters(element, requestedParameters);
+                minimalInfo.Parameters.AddRange(additionalParameters);
+            }
+
+            return minimalInfo;
+        }
+
+        /// <summary>
+        /// Create detailed positioning element info
+        /// </summary>
+        private PositioningElementInfo CreateDetailedPositioningInfo(Document doc, Element element, List<string> requestedParameters)
+        {
+            PositioningElementInfo info = new PositioningElementInfo
+            {
+                Id = (int)element.Id.Value,
+                UniqueId = element.UniqueId,
+                Name = element.Name,
+                FamilyName = element?.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM)?.AsValueString(),
+                Category = element.Category?.Name,
+                BuiltInCategory = element.Category != null ?
+                    Enum.GetName(typeof(BuiltInCategory), element.Category.Id.Value) : null,
+                ElementClass = element.GetType().Name,
+                BoundingBox = ElementInfoUtility.GetBoundingBoxInfo(element)
+            };
+
+            // Process level
+            if (element is Level level)
+            {
+                // Keep elevation in feet (don't convert to mm for consistency with other parameters)
+                info.Elevation = level.Elevation * 304.8; // Still convert to mm for backward compatibility
+            }
+            // Process grid
+            else if (element is Grid grid)
+            {
+                Curve curve = grid.Curve;
+                if (curve != null)
+                {
+                    XYZ start = curve.GetEndPoint(0);
+                    XYZ end = curve.GetEndPoint(1);
+                    // Create JZLine (convert to mm)
+                    info.GridLine = new JZLine(
+                        start.X * 304.8, start.Y * 304.8, start.Z * 304.8,
+                        end.X * 304.8, end.Y * 304.8, end.Z * 304.8);
+                }
+            }
+
+            // Get level information
+            info.Level = ElementInfoUtility.GetElementLevel(doc, element);
+
+            return info;
+        }
+
+        /// <summary>
+        /// Check if detailed info is needed based on requested parameters
+        /// </summary>
+        private bool NeedsDetailedInfo(List<string> requestedParameters)
+        {
+            // If no specific parameters requested, don't need detailed info
+            if (requestedParameters == null || !requestedParameters.Any())
+                return false;
+
+            // If requesting parameters that are only available in detailed info, return true
+            // For positioning elements, most parameters can be handled in minimal info
+            var detailedOnlyParams = new[] { "bounding_box", "grid_line", "family_name", "unique_id" };
+            return requestedParameters.Any(p => detailedOnlyParams.Contains(p.ToLower()));
         }
     }
 

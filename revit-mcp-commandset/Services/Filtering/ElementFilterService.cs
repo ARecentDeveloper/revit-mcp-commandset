@@ -1,6 +1,7 @@
 using Autodesk.Revit.DB;
 using RevitMCPCommandSet.Models.Common;
 using RevitMCPCommandSet.Utils.ParameterMappings;
+using RevitMCPCommandSet.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,37 +21,53 @@ namespace RevitMCPCommandSet.Services.Filtering
         /// <returns>A collection of elements that meet all filter conditions</returns>
         public static IList<Element> GetFilteredElements(Document doc, FilterSetting settings)
         {
+            DebugLogger.LogSeparator();
+            DebugLogger.Log("FILTER", $"Starting GetFilteredElements with category: {settings?.FilterCategory ?? "null"}");
+            
             if (doc == null)
                 throw new ArgumentNullException(nameof(doc));
             if (settings == null)
                 throw new ArgumentNullException(nameof(settings));
+            
+            DebugLogger.Log("FILTER", $"Settings - IncludeTypes: {settings.IncludeTypes}, IncludeInstances: {settings.IncludeInstances}");
+            
             // Validate filter settings
             if (!settings.Validate(out string errorMessage))
             {
-                System.Diagnostics.Trace.WriteLine($"Invalid filter settings: {errorMessage}");
+                DebugLogger.Log("FILTER", $"Invalid filter settings: {errorMessage}");
                 return new List<Element>();
             }
+            DebugLogger.Log("FILTER", "Filter settings validation passed");
             // Record the application of filter conditions
             List<string> appliedFilters = new List<string>();
             List<Element> result = new List<Element>();
             // If both types and instances are included, they need to be filtered separately and then the results merged
             if (settings.IncludeTypes && settings.IncludeInstances)
             {
+                DebugLogger.Log("FILTER", "Collecting both types and instances");
                 // Collect type elements
-                result.AddRange(GetElementsByKind(doc, settings, true, appliedFilters));
+                var typeElements = GetElementsByKind(doc, settings, true, appliedFilters);
+                DebugLogger.Log("FILTER", $"Found {typeElements.Count} type elements");
+                result.AddRange(typeElements);
 
                 // Collect instance elements
-                result.AddRange(GetElementsByKind(doc, settings, false, appliedFilters));
+                var instanceElements = GetElementsByKind(doc, settings, false, appliedFilters);
+                DebugLogger.Log("FILTER", $"Found {instanceElements.Count} instance elements");
+                result.AddRange(instanceElements);
             }
             else if (settings.IncludeInstances)
             {
+                DebugLogger.Log("FILTER", "Collecting only instance elements");
                 // Collect only instance elements
                 result = GetElementsByKind(doc, settings, false, appliedFilters);
+                DebugLogger.Log("FILTER", $"Found {result.Count} instance elements");
             }
             else if (settings.IncludeTypes)
             {
+                DebugLogger.Log("FILTER", "Collecting only type elements");
                 // Collect only type elements
                 result = GetElementsByKind(doc, settings, true, appliedFilters);
+                DebugLogger.Log("FILTER", $"Found {result.Count} type elements");
             }
 
             // Output applied filter information
@@ -68,6 +85,8 @@ namespace RevitMCPCommandSet.Services.Filtering
         /// </summary>
         private static List<Element> GetElementsByKind(Document doc, FilterSetting settings, bool isElementType, List<string> appliedFilters)
         {
+            DebugLogger.Log("KIND", $"GetElementsByKind - isElementType: {isElementType}, category: {settings.FilterCategory}");
+            
             // Create a basic FilteredElementCollector
             FilteredElementCollector collector;
             // Check if it is necessary to filter elements visible in the current view (only applicable to instance elements)
@@ -96,14 +115,63 @@ namespace RevitMCPCommandSet.Services.Filtering
             // 1. Category filter
             if (!string.IsNullOrWhiteSpace(settings.FilterCategory))
             {
+                DebugLogger.Log("CATEGORY", $"Processing category filter: {settings.FilterCategory}");
+                
                 BuiltInCategory category;
                 if (!Enum.TryParse(settings.FilterCategory, true, out category))
                 {
+                    DebugLogger.Log("CATEGORY", $"FAILED to parse category '{settings.FilterCategory}' as BuiltInCategory enum");
                     throw new ArgumentException($"Unable to convert '{settings.FilterCategory}' to a valid Revit category.");
                 }
+                
+                DebugLogger.Log("CATEGORY", $"Successfully parsed '{settings.FilterCategory}' as BuiltInCategory.{category} (value: {(int)category})");
+                
+                // Test the category filter before applying it
+                var testCollector = new FilteredElementCollector(doc);
+                if (!isElementType)
+                {
+                    testCollector = testCollector.WhereElementIsNotElementType();
+                }
+                else
+                {
+                    testCollector = testCollector.WhereElementIsElementType();
+                }
+                
+                DebugLogger.Log("CATEGORY", $"Testing category filter with collector (isElementType={isElementType})");
+                
+                var testCategoryFilter = new ElementCategoryFilter(category);
+                var testElements = testCollector.WherePasses(testCategoryFilter).ToList();
+                DebugLogger.Log("CATEGORY", $"Direct category filter test found {testElements.Count} elements");
+                
+                if (testElements.Count > 0)
+                {
+                    var firstElement = testElements.First();
+                    DebugLogger.Log("CATEGORY", $"First found element - ID: {firstElement.Id}, Name: {firstElement.Name ?? "null"}, Category: {firstElement.Category?.Name ?? "null"}, IsElementType: {firstElement is ElementType}");
+                }
+                else
+                {
+                    DebugLogger.Log("CATEGORY", "No elements found with this category filter - investigating why...");
+                    
+                    // Let's see what categories actually exist in the document
+                    var allCollector = new FilteredElementCollector(doc);
+                    if (!isElementType)
+                    {
+                        allCollector = allCollector.WhereElementIsNotElementType();
+                    }
+                    else
+                    {
+                        allCollector = allCollector.WhereElementIsElementType();
+                    }
+                    
+                    var allElements = allCollector.ToList().Take(20); // Just check first 20
+                    var foundCategories = allElements.Select(e => e.Category?.Name ?? "NULL").Distinct().ToList();
+                    DebugLogger.Log("CATEGORY", $"Sample categories in document: {string.Join(", ", foundCategories)}");
+                }
+                
                 ElementCategoryFilter categoryFilter = new ElementCategoryFilter(category);
                 filters.Add(categoryFilter);
                 appliedFilters.Add($"Category: {settings.FilterCategory}");
+                DebugLogger.Log("CATEGORY", "Category filter added to filters list");
             }
             // 2. Element type filter
             if (!string.IsNullOrWhiteSpace(settings.FilterElementType))
@@ -220,45 +288,45 @@ namespace RevitMCPCommandSet.Services.Filtering
                     }
                 }
             }
-            // Debug: Count elements before applying category filter
+            // Count elements before applying filters
             var elementsBeforeFilter = collector.ToElements();
-            System.Diagnostics.Trace.WriteLine($"Debug: Found {elementsBeforeFilter.Count} elements before category filtering (isElementType={isElementType})");
+            DebugLogger.Log("APPLY", $"Elements before filtering: {elementsBeforeFilter.Count} (isElementType={isElementType})");
             
             // Apply combined filter
             if (filters.Count > 0)
             {
+                DebugLogger.Log("APPLY", $"Applying {filters.Count} filter(s)");
+                
                 ElementFilter combinedFilter = filters.Count == 1
                     ? filters[0]
                     : new LogicalAndFilter(filters);
                 collector = collector.WherePasses(combinedFilter);
-                if (filters.Count > 1)
-                {
-                    System.Diagnostics.Trace.WriteLine($"Applied a combined filter with {filters.Count} conditions (logical AND)");
-                }
+                
+                DebugLogger.Log("APPLY", $"Combined filter applied (logical AND for {filters.Count} conditions)");
+            }
+            else
+            {
+                DebugLogger.Log("APPLY", "No filters to apply - returning all elements");
             }
             
             var finalElements = collector.ToElements().ToList();
-            System.Diagnostics.Trace.WriteLine($"Debug: Found {finalElements.Count} elements after all filtering");
+            DebugLogger.Log("APPLY", $"Final result: {finalElements.Count} elements after filtering");
             
-            // Debug: If looking for levels specifically, let's see what we find
-            if (!string.IsNullOrWhiteSpace(settings.FilterCategory) && settings.FilterCategory.Equals("OST_Levels", StringComparison.OrdinalIgnoreCase))
+            // Log some details about the found elements
+            if (finalElements.Count > 0)
             {
-                System.Diagnostics.Trace.WriteLine($"Debug: Level filtering - Before category filter: {elementsBeforeFilter.Count}, After: {finalElements.Count}");
-                
-                // Let's try a different approach for levels
-                if (finalElements.Count == 0)
+                foreach (var element in finalElements.Take(5))
                 {
-                    System.Diagnostics.Trace.WriteLine("Debug: Trying alternative level collection approach...");
-                    var allElementsCollector = new FilteredElementCollector(doc);
-                    var allElements = allElementsCollector.ToElements();
-                    var levelElements = allElements.Where(e => e.Category?.Name == "Levels").ToList();
-                    System.Diagnostics.Trace.WriteLine($"Debug: Found {levelElements.Count} level elements using alternative approach");
-                    
-                    foreach (var level in levelElements.Take(5))
-                    {
-                        System.Diagnostics.Trace.WriteLine($"Debug: Level found - ID: {level.Id}, Name: {level.Name}, Category: {level.Category?.Name}, IsElementType: {level is ElementType}");
-                    }
+                    DebugLogger.Log("RESULT", $"Element found - ID: {element.Id}, Name: {element.Name ?? "null"}, Category: {element.Category?.Name ?? "null"}");
                 }
+                if (finalElements.Count > 5)
+                {
+                    DebugLogger.Log("RESULT", $"... and {finalElements.Count - 5} more elements");
+                }
+            }
+            else
+            {
+                DebugLogger.Log("RESULT", "No elements found - this is the issue we're investigating");
             }
             
             return finalElements;
