@@ -66,10 +66,6 @@ namespace RevitMCPCommandSet.Utils
             { "structural framing", BuiltInCategory.OST_StructuralFraming },
             { "OST_StructuralFraming", BuiltInCategory.OST_StructuralFraming },
             
-            { "levels", BuiltInCategory.OST_Levels },
-            { "level", BuiltInCategory.OST_Levels },
-            { "OST_Levels", BuiltInCategory.OST_Levels },
-            
             // MEP - Electrical
             { "conduits", BuiltInCategory.OST_Conduit },
             { "conduit", BuiltInCategory.OST_Conduit },
@@ -110,7 +106,26 @@ namespace RevitMCPCommandSet.Utils
             
             { "plumbing fixtures", BuiltInCategory.OST_PlumbingFixtures },
             { "plumbing fixture", BuiltInCategory.OST_PlumbingFixtures },
-            { "OST_PlumbingFixtures", BuiltInCategory.OST_PlumbingFixtures }
+            { "OST_PlumbingFixtures", BuiltInCategory.OST_PlumbingFixtures },
+
+            // Positioning
+            { "grids", BuiltInCategory.OST_Grids },
+            { "grid", BuiltInCategory.OST_Grids },
+            { "grid lines", BuiltInCategory.OST_Grids },
+            { "grid line", BuiltInCategory.OST_Grids },
+            { "gridlines", BuiltInCategory.OST_Grids },
+            { "gridline", BuiltInCategory.OST_Grids },
+            { "OST_Grids", BuiltInCategory.OST_Grids },
+
+            { "levels", BuiltInCategory.OST_Levels },
+            { "level", BuiltInCategory.OST_Levels },
+            { "OST_Levels", BuiltInCategory.OST_Levels },
+
+            { "scope boxes", BuiltInCategory.OST_VolumeOfInterest },
+            { "scope box", BuiltInCategory.OST_VolumeOfInterest },
+            { "volume of interest", BuiltInCategory.OST_VolumeOfInterest },
+            { "OST_VolumeOfInterest", BuiltInCategory.OST_VolumeOfInterest },
+            { "OST_ScopeBoxes", BuiltInCategory.OST_VolumeOfInterest },
         };
 
         /// <summary>
