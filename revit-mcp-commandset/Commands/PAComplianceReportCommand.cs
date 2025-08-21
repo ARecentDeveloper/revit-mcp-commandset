@@ -65,6 +65,16 @@ namespace RevitMCPCommandSet.Commands
                 {
                     reportSettings.IncludeModelIntegrity = parameters["includeModelIntegrity"].ToObject<bool>();
                 }
+                
+                if (parameters.ContainsKey("companyInitial"))
+                {
+                    reportSettings.CompanyInitial = parameters["companyInitial"].ToString();
+                }
+                
+                if (parameters.ContainsKey("includePAFamilies"))
+                {
+                    reportSettings.IncludePAFamilies = parameters["includePAFamilies"].ToObject<bool>();
+                }
 
                 // Log the full request for debugging
                 System.Diagnostics.Trace.WriteLine($"PA Compliance Report Request: {parameters.ToString()}");
@@ -112,5 +122,7 @@ namespace RevitMCPCommandSet.Commands
         public bool IncludeWorksets { get; set; } = true;
         public bool IncludeSheets { get; set; } = true;
         public bool IncludeModelIntegrity { get; set; } = true;
+        public string CompanyInitial { get; set; } = "EN";
+        public bool IncludePAFamilies { get; set; } = false;
     }
 }

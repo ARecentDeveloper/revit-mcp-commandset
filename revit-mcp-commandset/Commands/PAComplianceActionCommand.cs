@@ -82,6 +82,6 @@ namespace RevitMCPCommandSet.Commands
         public string ExcelFilePath { get; set; } = "";
         public string Step { get; set; } = "all";
         public bool DryRun { get; set; } = false;
-        public bool BackupProject { get; set; } = true;
+        public bool BackupProject { get; set; } = false;
     }
 }

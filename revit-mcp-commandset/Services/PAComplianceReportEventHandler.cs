@@ -251,10 +251,17 @@ namespace RevitMCPCommandSet.Services
                     var family = firstSymbol.Family;
                     var categoryName = family.FamilyCategory?.Name ?? "Unknown";
                     
+                    // Filter PA families based on user preference
+                    if (!ReportSettings.IncludePAFamilies && family.Name.StartsWith("PA-", StringComparison.OrdinalIgnoreCase))
+                    {
+                        System.Diagnostics.Trace.WriteLine($"PA Compliance: Skipping PA family: {family.Name} (IncludePAFamilies = false)");
+                        continue;
+                    }
+                    
                     System.Diagnostics.Trace.WriteLine($"PA Compliance: Processing annotation family: {family.Name} (Category: {categoryName})");
                     
-                    // Generate PA-compliant suggestion
-                    var suggestedName = PANamingConventionService.GenerateAnnotationFamilyName(categoryName, family.Name);
+                    // Generate PA-compliant suggestion using new parameters
+                    var suggestedName = PANamingConventionService.GenerateAnnotationFamilyName(categoryName, family.Name, ReportSettings.CompanyInitial);
                     
                     // Get all types for this family
                     var typeNames = familyGroup.Select(fs => fs.Name).ToList();
@@ -312,6 +319,13 @@ namespace RevitMCPCommandSet.Services
                     var firstSymbol = familyGroup.First();
                     var family = firstSymbol.Family;
                     var categoryName = family.FamilyCategory?.Name ?? "Unknown";
+                    
+                    // Filter PA families based on user preference
+                    if (!ReportSettings.IncludePAFamilies && family.Name.StartsWith("PA-", StringComparison.OrdinalIgnoreCase))
+                    {
+                        System.Diagnostics.Trace.WriteLine($"PA Compliance: Skipping PA family: {family.Name} (IncludePAFamilies = false)");
+                        continue;
+                    }
                     
                     System.Diagnostics.Trace.WriteLine($"PA Compliance: Processing model family: {family.Name} (Category: {categoryName})");
                     

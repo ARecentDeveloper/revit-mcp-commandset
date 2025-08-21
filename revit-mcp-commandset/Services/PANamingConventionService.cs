@@ -10,12 +10,13 @@ namespace RevitMCPCommandSet.Services
     public static class PANamingConventionService
     {
         /// <summary>
-        /// Generate PA-compliant annotation family name (PA-CATEGORY-DESCRIPTION format)
+        /// Generate PA-compliant annotation family name (CI-CATEGORY-DESCRIPTION1-DESCRIPTION2 format)
         /// </summary>
         /// <param name="category">Family category</param>
         /// <param name="currentName">Current family name</param>
+        /// <param name="companyInitial">Company initial (default: "EN")</param>
         /// <returns>PA-compliant suggested name</returns>
-        public static string GenerateAnnotationFamilyName(string category, string currentName)
+        public static string GenerateAnnotationFamilyName(string category, string currentName, string companyInitial = "EN")
         {
             if (string.IsNullOrWhiteSpace(category) || string.IsNullOrWhiteSpace(currentName))
             {
@@ -25,14 +26,19 @@ namespace RevitMCPCommandSet.Services
 
             try
             {
-                // Clean and format category name
-                var cleanCategory = CleanCategoryName(category);
+                // Use provided company initial or default
+                var ci = string.IsNullOrWhiteSpace(companyInitial) ? "EN" : companyInitial.ToUpper();
                 
-                // Extract meaningful description from current name
-                var description = ExtractDescription(currentName);
+                // Map category to new abbreviations
+                var categoryCode = MapAnnotationCategoryToCode(category);
                 
-                // Generate PA format: PA-CATEGORY-DESCRIPTION
-                var suggestedName = $"PA-{cleanCategory.ToUpper()}-{description.ToUpper()}";
+                // Extract description parts from current name
+                var (description1, description2) = ExtractAnnotationDescriptions(currentName, categoryCode);
+                
+                // Generate new format: CI-CATEGORY-DESCRIPTION1-DESCRIPTION2
+                var suggestedName = string.IsNullOrWhiteSpace(description2) 
+                    ? $"{ci}-{categoryCode}-{description1}" 
+                    : $"{ci}-{categoryCode}-{description1}-{description2}";
                 
                 System.Diagnostics.Trace.WriteLine($"PA Naming: Annotation family '{currentName}' (Category: '{category}') -> '{suggestedName}'");
                 
@@ -315,6 +321,105 @@ namespace RevitMCPCommandSet.Services
             cleaned = Regex.Replace(cleaned, @"[^a-zA-Z0-9\s]", "");
             
             return cleaned;
+        }
+
+        /// <summary>
+        /// Map annotation family category to the new category codes
+        /// </summary>
+        private static string MapAnnotationCategoryToCode(string category)
+        {
+            if (string.IsNullOrWhiteSpace(category))
+                return "SYM";
+
+            var categoryUpper = category.ToUpper();
+            
+            // TitleBlocks -> TB
+            if (categoryUpper.Contains("TITLEBLOCK") || categoryUpper.Contains("OST_TITLEBLOCKS"))
+                return "TB";
+            
+            // Any Tags -> TAG
+            if (categoryUpper.Contains("TAG") || categoryUpper.Contains("TAGS"))
+                return "TAG";
+            
+            // All other categories -> SYM
+            return "SYM";
+        }
+
+        /// <summary>
+        /// Extract description parts from annotation family name
+        /// </summary>
+        private static (string description1, string description2) ExtractAnnotationDescriptions(string currentName, string categoryCode = "")
+        {
+            if (string.IsNullOrWhiteSpace(currentName))
+                return ("UNNAMED", "");
+
+            // Clean the name first
+            var cleanName = CleanName(currentName);
+            
+            // Extract potential size information for DESCRIPTION2
+            var description2 = ExtractSizeInformation(currentName);
+            
+            // Remove size information from the name if we extracted it to DESCRIPTION2
+            var nameWithoutSize = cleanName;
+            if (!string.IsNullOrWhiteSpace(description2))
+            {
+                // Remove various size patterns from the name
+                nameWithoutSize = Regex.Replace(nameWithoutSize, @"\d+\s*[xX]\s*\d+", "", RegexOptions.IgnoreCase);
+                nameWithoutSize = Regex.Replace(nameWithoutSize, @"\d+(?:\.\d+)?\s*['""]*\s*[xX]\s*\d+(?:\.\d+)?\s*['""]*", "", RegexOptions.IgnoreCase);
+                nameWithoutSize = nameWithoutSize.Trim();
+            }
+            
+            // Convert to uppercase and remove symbols/spaces for DESCRIPTION1
+            var description1 = Regex.Replace(nameWithoutSize, @"[^a-zA-Z0-9]", "").ToUpper();
+            
+            // Remove "TAG" suffix if the category is TAG
+            if (categoryCode.Equals("TAG", StringComparison.OrdinalIgnoreCase) && description1.EndsWith("TAG"))
+            {
+                description1 = description1.Substring(0, description1.Length - 3);
+            }
+            
+            return (string.IsNullOrWhiteSpace(description1) ? "UNNAMED" : description1, description2);
+        }
+
+        /// <summary>
+        /// Extract size information from name for DESCRIPTION2
+        /// </summary>
+        private static string ExtractSizeInformation(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return "";
+
+            try
+            {
+                // Look for patterns like "34 x 44", "34x44", "34 X 44", etc.
+                var sizePattern = @"(\d+)\s*[xX]\s*(\d+)";
+                var match = Regex.Match(name, sizePattern);
+                
+                if (match.Success)
+                {
+                    var width = match.Groups[1].Value;
+                    var height = match.Groups[2].Value;
+                    return $"{width}x{height}";
+                }
+                
+                // Look for other size patterns like dimensions followed by units
+                var dimensionPattern = @"(\d+(?:\.\d+)?)\s*['""]*\s*[xX]\s*(\d+(?:\.\d+)?)\s*['""]*";
+                match = Regex.Match(name, dimensionPattern);
+                
+                if (match.Success)
+                {
+                    var width = match.Groups[1].Value;
+                    var height = match.Groups[2].Value;
+                    return $"{width}x{height}";
+                }
+                
+                return "";
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"Error extracting size information: {ex.Message}");
+                return "";
+            }
         }
     }
 }

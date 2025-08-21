@@ -103,7 +103,7 @@ namespace RevitMCPCommandSet.Models.PACompliance
         public bool DryRun { get; set; } = false;
 
         [JsonProperty("backupProject")]
-        public bool BackupProject { get; set; } = true;
+        public bool BackupProject { get; set; } = false;
     }
 
     /// <summary>
