@@ -1,5 +1,4 @@
-﻿using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
+﻿using Autodesk.Revit.UI;
 using RevitMCPCommandSet.Models.Common;
 using RevitMCPSDK.API.Interfaces;
 using System;
@@ -32,26 +31,12 @@ namespace RevitMCPCommandSet.Services
         {
             try
             {
-                // Clear any previous results to ensure fresh data
-                ResultElements = null;
-                
                 var uiDoc = app.ActiveUIDocument;
                 var doc = uiDoc.Document;
 
-                // Force refresh the selection by accessing it directly
-                var selection = uiDoc.Selection;
-                var selectedIds = selection.GetElementIds();
-                
-                // Convert to elements immediately to avoid any caching
-                var selectedElements = new List<Element>();
-                foreach (var id in selectedIds)
-                {
-                    var element = doc.GetElement(id);
-                    if (element != null)
-                    {
-                        selectedElements.Add(element);
-                    }
-                }
+                // Get currently selected elements
+                var selectedIds = uiDoc.Selection.GetElementIds();
+                var selectedElements = selectedIds.Select(id => doc.GetElement(id)).ToList();
 
                 // Apply quantity limit
                 if (Limit.HasValue && Limit.Value > 0)
