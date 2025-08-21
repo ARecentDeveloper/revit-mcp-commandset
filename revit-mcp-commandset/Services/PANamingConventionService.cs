@@ -81,7 +81,8 @@ namespace RevitMCPCommandSet.Services
                 var description = ExtractDescription(currentName, manufacturer);
                 
                 // Generate PA format: CATEGORY-MANUFACTURER-DESCRIPTION
-                var suggestedName = $"{cleanCategory.ToUpper()}-{manufacturer.ToUpper()}-{description.ToUpper()}";
+                // Keep original case for readability, only clean category goes to proper case
+                var suggestedName = $"{cleanCategory}-{manufacturer}-{description}";
                 
                 System.Diagnostics.Trace.WriteLine($"PA Naming: Model family '{currentName}' (Category: '{category}', Manufacturer: '{manufacturer}') -> '{suggestedName}'");
                 
@@ -95,57 +96,57 @@ namespace RevitMCPCommandSet.Services
         }
 
         /// <summary>
-        /// Detect manufacturer from family name
+        /// Get manufacturer name - always returns "Generic" for now
         /// </summary>
         /// <param name="familyName">Family name to analyze</param>
-        /// <returns>Detected manufacturer or "Generic" if not found</returns>
+        /// <returns>Always returns "Generic"</returns>
         public static string DetectManufacturer(string familyName)
         {
-            if (string.IsNullOrWhiteSpace(familyName))
-                return "Generic";
+            // For now, always return "Generic" - manufacturer detection disabled
+            return "Generic";
+        }
+
+        /// <summary>
+        /// Generate PA-compliant model family type name
+        /// </summary>
+        /// <param name="currentTypeName">Current family type name</param>
+        /// <param name="familyName">Parent family name for context</param>
+        /// <returns>PA-compliant suggested type name</returns>
+        public static string GenerateModelFamilyTypeName(string currentTypeName, string familyName = "")
+        {
+            if (string.IsNullOrWhiteSpace(currentTypeName))
+                return "DEFAULT";
 
             try
             {
-                // Common manufacturer patterns
-                var manufacturers = new[]
+                // Clean the type name
+                var cleanTypeName = CleanName(currentTypeName);
+                
+                // Check if it looks like dimensions (e.g., "24x36x8", "1200x600")
+                if (IsDimensionPattern(cleanTypeName))
                 {
-                    "Kohler", "American Standard", "Toto", "Moen", "Delta", "Grohe",
-                    "Steelcase", "Herman Miller", "Knoll", "Haworth", "Teknion",
-                    "Armstrong", "USG", "Owens Corning", "Johns Manville",
-                    "Carrier", "Trane", "York", "Lennox", "Rheem", "Goodman",
-                    "Square D", "Schneider", "GE", "Siemens", "Eaton", "ABB",
-                    "Lutron", "Leviton", "Cooper", "Hubbell", "Pass & Seymour"
-                };
-
-                // Check for manufacturer names in the family name
-                foreach (var manufacturer in manufacturers)
-                {
-                    if (familyName.IndexOf(manufacturer, StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        return manufacturer;
-                    }
+                    return FormatDimensions(cleanTypeName);
                 }
-
-                // Check for manufacturer patterns at the beginning of the name
-                var words = familyName.Split(new char[] { ' ', '_', '-' }, StringSplitOptions.RemoveEmptyEntries);
-                if (words.Length > 0)
+                
+                // Check if it looks like a model/series number (e.g., "WA1832", "Model-123")
+                if (IsModelSeriesPattern(cleanTypeName))
                 {
-                    var firstWord = words[0];
-                    
-                    // If first word looks like a manufacturer (capitalized, reasonable length)
-                    if (firstWord.Length >= 3 && firstWord.Length <= 15 && 
-                        char.IsUpper(firstWord[0]) && firstWord.All(c => char.IsLetter(c)))
-                    {
-                        return firstWord;
-                    }
+                    return FormatModelSeries(cleanTypeName);
                 }
-
-                return "Generic";
+                
+                // Check if it looks like capacity/value (e.g., "Standard Height", "ADA Height", "100 CFM")
+                if (IsCapacityValuePattern(cleanTypeName))
+                {
+                    return FormatCapacityValue(cleanTypeName);
+                }
+                
+                // Default: clean and capitalize
+                return FormatGeneralTypeName(cleanTypeName);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Trace.WriteLine($"Error detecting manufacturer: {ex.Message}");
-                return "Generic";
+                System.Diagnostics.Trace.WriteLine($"Error generating model family type name: {ex.Message}");
+                return "DEFAULT";
             }
         }
 
@@ -261,7 +262,7 @@ namespace RevitMCPCommandSet.Services
         private static string CleanCategoryName(string category)
         {
             if (string.IsNullOrWhiteSpace(category))
-                return "UNKNOWN";
+                return "Unknown";
 
             // Remove OST_ prefix if present
             var cleaned = category.StartsWith("OST_") ? category.Substring(4) : category;
@@ -272,10 +273,10 @@ namespace RevitMCPCommandSet.Services
             // Remove common prefixes/suffixes
             cleaned = Regex.Replace(cleaned, @"\b(Categories?|Category)\b", "", RegexOptions.IgnoreCase).Trim();
             
-            // Convert to proper format
-            cleaned = Regex.Replace(cleaned, @"\s+", " ").Trim();
+            // Convert to proper format - remove extra spaces but keep original case
+            cleaned = Regex.Replace(cleaned, @"\s+", "").Trim();
             
-            return string.IsNullOrWhiteSpace(cleaned) ? "UNKNOWN" : cleaned;
+            return string.IsNullOrWhiteSpace(cleaned) ? "Unknown" : cleaned;
         }
 
         /// <summary>
@@ -284,12 +285,12 @@ namespace RevitMCPCommandSet.Services
         private static string ExtractDescription(string name, string manufacturerToRemove = null)
         {
             if (string.IsNullOrWhiteSpace(name))
-                return "UNNAMED";
+                return "Unnamed";
 
             var description = name;
 
-            // Remove manufacturer if specified
-            if (!string.IsNullOrWhiteSpace(manufacturerToRemove))
+            // Remove manufacturer if specified (since we're using "Generic", this won't remove anything)
+            if (!string.IsNullOrWhiteSpace(manufacturerToRemove) && manufacturerToRemove != "Generic")
             {
                 description = Regex.Replace(description, Regex.Escape(manufacturerToRemove), "", RegexOptions.IgnoreCase).Trim();
             }
@@ -297,10 +298,10 @@ namespace RevitMCPCommandSet.Services
             // Remove common prefixes
             description = Regex.Replace(description, @"^(PA-|PA_)", "", RegexOptions.IgnoreCase);
             
-            // Clean up the description
-            description = CleanName(description);
+            // Clean up the description but preserve original case
+            description = CleanNamePreserveCase(description);
             
-            return string.IsNullOrWhiteSpace(description) ? "UNNAMED" : description;
+            return string.IsNullOrWhiteSpace(description) ? "Unnamed" : description;
         }
 
         /// <summary>
@@ -321,6 +322,35 @@ namespace RevitMCPCommandSet.Services
             cleaned = Regex.Replace(cleaned, @"[^a-zA-Z0-9\s]", "");
             
             return cleaned;
+        }
+
+        /// <summary>
+        /// Clean name and convert to PascalCase (capitalize leading letters of each word)
+        /// </summary>
+        private static string CleanNamePreserveCase(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return "";
+
+            // Split on various separators and spaces
+            var words = Regex.Split(name, @"[_\-\.\s]+");
+            
+            var result = "";
+            foreach (var word in words)
+            {
+                if (!string.IsNullOrWhiteSpace(word))
+                {
+                    // Remove special characters but keep alphanumeric
+                    var cleanWord = Regex.Replace(word, @"[^a-zA-Z0-9]", "");
+                    if (!string.IsNullOrEmpty(cleanWord))
+                    {
+                        // Capitalize first letter, lowercase the rest
+                        result += char.ToUpper(cleanWord[0]) + cleanWord.Substring(1).ToLower();
+                    }
+                }
+            }
+            
+            return result;
         }
 
         /// <summary>
@@ -420,6 +450,102 @@ namespace RevitMCPCommandSet.Services
                 System.Diagnostics.Trace.WriteLine($"Error extracting size information: {ex.Message}");
                 return "";
             }
+        }
+
+        /// <summary>
+        /// Check if name looks like dimensions (e.g., "24x36", "1200x600x300")
+        /// </summary>
+        private static bool IsDimensionPattern(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return false;
+                
+            // Look for patterns like "24x36", "1200x600", "24x36x8"
+            return Regex.IsMatch(name, @"^\d+(?:\.\d+)?\s*[xX]\s*\d+(?:\.\d+)?(?:\s*[xX]\s*\d+(?:\.\d+)?)?$");
+        }
+
+        /// <summary>
+        /// Check if name looks like model/series number
+        /// </summary>
+        private static bool IsModelSeriesPattern(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return false;
+                
+            // Look for patterns like "WA1832", "Model123", "Series-400"
+            return Regex.IsMatch(name, @"^[A-Za-z]{1,4}\d+$") || 
+                   name.ToLower().Contains("model") || 
+                   name.ToLower().Contains("series");
+        }
+
+        /// <summary>
+        /// Check if name looks like capacity/value description
+        /// </summary>
+        private static bool IsCapacityValuePattern(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return false;
+                
+            var lowerName = name.ToLower();
+            return lowerName.Contains("height") || lowerName.Contains("standard") || 
+                   lowerName.Contains("ada") || lowerName.Contains("cfm") || 
+                   lowerName.Contains("capacity") || lowerName.Contains("size");
+        }
+
+        /// <summary>
+        /// Format dimensions with proper case
+        /// </summary>
+        private static string FormatDimensions(string name)
+        {
+            // Convert to standard format: 24x36x8 (lowercase x)
+            return Regex.Replace(name, @"\s*[xX]\s*", "x");
+        }
+
+        /// <summary>
+        /// Format model/series numbers
+        /// </summary>
+        private static string FormatModelSeries(string name)
+        {
+            // Remove spaces and hyphens, keep alphanumeric
+            var cleaned = Regex.Replace(name, @"[^a-zA-Z0-9]", "");
+            return cleaned.ToUpper();
+        }
+
+        /// <summary>
+        /// Format capacity/value descriptions
+        /// </summary>
+        private static string FormatCapacityValue(string name)
+        {
+            // Title case with no spaces
+            var words = name.Split(new char[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+            var result = "";
+            foreach (var word in words)
+            {
+                if (word.Length > 0)
+                {
+                    result += char.ToUpper(word[0]) + word.Substring(1).ToLower();
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Format general type names
+        /// </summary>
+        private static string FormatGeneralTypeName(string name)
+        {
+            // Remove special characters, title case, no spaces
+            var cleaned = Regex.Replace(name, @"[^a-zA-Z0-9\s]", "");
+            var words = cleaned.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            var result = "";
+            foreach (var word in words)
+            {
+                if (word.Length > 0)
+                {
+                    result += char.ToUpper(word[0]) + word.Substring(1).ToLower();
+                }
+            }
+            return string.IsNullOrWhiteSpace(result) ? "DEFAULT" : result;
         }
     }
 }

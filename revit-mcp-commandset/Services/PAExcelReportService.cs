@@ -185,14 +185,33 @@ namespace RevitMCPCommandSet.Services
                 worksheet.Cells[row, 7].Value = "Pending"; // Status
                 worksheet.Cells[row, 8].Value = ""; // Error Message
 
-                // Highlight rows where current name doesn't match suggested name
-                if (!string.IsNullOrEmpty(family.SuggestedName) && 
-                    !family.CurrentName.Equals(family.SuggestedName))
+                // Different styling for family vs type rows
+                if (family.IsTypeLevel)
                 {
+                    // Type rows: lighter background and indented appearance
                     using (var range = worksheet.Cells[row, 1, row, headers.Length])
                     {
                         range.Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        range.Style.Fill.BackgroundColor.SetColor(Color.LightYellow);
+                        range.Style.Fill.BackgroundColor.SetColor(Color.AliceBlue);
+                    }
+                }
+                else
+                {
+                    // Family rows: bold text for distinction
+                    using (var range = worksheet.Cells[row, 1, row, headers.Length])
+                    {
+                        range.Style.Font.Bold = true;
+                    }
+                    
+                    // Highlight family rows where current name doesn't match suggested name
+                    if (!string.IsNullOrEmpty(family.SuggestedName) && 
+                        !family.CurrentName.Equals(family.SuggestedName))
+                    {
+                        using (var range = worksheet.Cells[row, 1, row, headers.Length])
+                        {
+                            range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            range.Style.Fill.BackgroundColor.SetColor(Color.LightYellow);
+                        }
                     }
                 }
             }

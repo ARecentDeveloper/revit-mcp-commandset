@@ -329,24 +329,44 @@ namespace RevitMCPCommandSet.Services
                     
                     System.Diagnostics.Trace.WriteLine($"PA Compliance: Processing model family: {family.Name} (Category: {categoryName})");
                     
-                    // Detect manufacturer and generate PA-compliant suggestion
+                    // Detect manufacturer and generate PA-compliant suggestion for family
                     var manufacturer = PANamingConventionService.DetectManufacturer(family.Name);
-                    var suggestedName = PANamingConventionService.GenerateModelFamilyName(categoryName, family.Name, manufacturer);
+                    var familySuggestedName = PANamingConventionService.GenerateModelFamilyName(categoryName, family.Name, manufacturer);
                     
-                    // Get all types for this family
-                    var typeNames = familyGroup.Select(fs => fs.Name).ToList();
-                    var typeName = typeNames.Count > 1 ? $"{typeNames.Count} types" : typeNames.FirstOrDefault() ?? "No types";
-                    
+                    // Add family-level entry
                     families.Add(new PAFamilyInfo
                     {
                         ElementId = (int)family.Id.Value,
                         Category = categoryName,
                         CurrentName = family.Name,
-                        TypeName = typeName,
+                        TypeName = $"FAMILY ({familyGroup.Count()} types)",
                         IsAnnotationFamily = false,
-                        SuggestedName = suggestedName,
-                        Manufacturer = manufacturer
+                        SuggestedName = familySuggestedName,
+                        Manufacturer = manufacturer,
+                        IsTypeLevel = false,
+                        FamilyId = (int)family.Id.Value,
+                        FamilyName = family.Name
                     });
+
+                    // Add individual type entries
+                    foreach (var familySymbol in familyGroup)
+                    {
+                        var typeSuggestedName = PANamingConventionService.GenerateModelFamilyTypeName(familySymbol.Name, family.Name);
+                        
+                        families.Add(new PAFamilyInfo
+                        {
+                            ElementId = (int)familySymbol.Id.Value,
+                            Category = categoryName,
+                            CurrentName = $"  └─ {familySymbol.Name}", // Indent to show hierarchy
+                            TypeName = "TYPE",
+                            IsAnnotationFamily = false,
+                            SuggestedName = typeSuggestedName,
+                            Manufacturer = manufacturer,
+                            IsTypeLevel = true,
+                            FamilyId = (int)family.Id.Value,
+                            FamilyName = family.Name
+                        });
+                    }
                 }
 
                 System.Diagnostics.Trace.WriteLine($"PA Compliance: Completed model families collection. Found {families.Count} unique families");
@@ -574,6 +594,9 @@ namespace RevitMCPCommandSet.Services
         public bool IsAnnotationFamily { get; set; }
         public string SuggestedName { get; set; } = "";
         public string Manufacturer { get; set; } = "";
+        public bool IsTypeLevel { get; set; } = false; // True for family types, false for families
+        public int FamilyId { get; set; } = 0; // ID of parent family (for types)
+        public string FamilyName { get; set; } = ""; // Name of parent family (for types)
     }
 
     /// <summary>
