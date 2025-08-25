@@ -65,38 +65,26 @@ namespace RevitMCPCommandSet.Services
                 throw new InvalidOperationException($"Level with ID {levelId} not found");
             }
 
-            double baseElevation;
-            Level levelForCoordinateBase;
-
             // Handle "Level Below" by finding the next lower level dynamically
             if (level.Name.Contains("Level Below"))
             {
                 var levelBelow = GetLevelBelow(doc, level);
                 if (levelBelow != null)
                 {
-                    baseElevation = levelBelow.Elevation + offset;
-                    levelForCoordinateBase = levelBelow;
+                    var levelBelowAbsoluteElevation = GetLevelAbsoluteElevation(doc, levelBelow);
+                    return levelBelowAbsoluteElevation + offset;
                 }
                 else
                 {
                     // No level below, fallback to offset only
-                    baseElevation = offset;
-                    levelForCoordinateBase = null;
+                    return offset;
                 }
             }
             else
             {
-                baseElevation = level.Elevation + offset;
-                levelForCoordinateBase = level;
+                var levelAbsoluteElevation = GetLevelAbsoluteElevation(doc, level);
+                return levelAbsoluteElevation + offset;
             }
-
-            // Apply coordinate base conversion
-            if (levelForCoordinateBase != null)
-            {
-                baseElevation = ApplyCoordinateBaseConversion(doc, levelForCoordinateBase, baseElevation);
-            }
-
-            return baseElevation;
         }
 
         public double ConvertLevelOffsetToInternal(Document doc, ElementId levelId, double offset)
@@ -112,28 +100,25 @@ namespace RevitMCPCommandSet.Services
                 return offset;
             }
 
-            var baseElevation = level.Elevation + offset;
-            return ApplyCoordinateBaseConversion(doc, level, baseElevation);
+            var levelAbsoluteElevation = GetLevelAbsoluteElevation(doc, level);
+            return levelAbsoluteElevation + offset;
         }
 
-        public double ConvertInternalToLevelOffset(Document doc, ElementId levelId, double internalElevation)
+        public double ConvertInternalToLevelOffset(Document doc, ElementId levelId, double absoluteElevation)
         {
             if (levelId.Value < 0)
             {
-                return internalElevation;
+                return absoluteElevation;
             }
 
             var level = doc.GetElement(levelId) as Level;
             if (level == null)
             {
-                return internalElevation;
+                return absoluteElevation;
             }
 
-            // Convert internal elevation back to base point coordinate system
-            var basePointElevation = ReverseCoordinateBaseConversion(doc, level, internalElevation);
-            
-            // Calculate offset from level
-            return basePointElevation - level.Elevation;
+            var levelAbsoluteElevation = GetLevelAbsoluteElevation(doc, level);
+            return absoluteElevation - levelAbsoluteElevation;
         }
 
         private Level GetLevelBelow(Document doc, Level currentLevel)
@@ -141,116 +126,51 @@ namespace RevitMCPCommandSet.Services
             var levels = new FilteredElementCollector(doc)
                 .OfClass(typeof(Level))
                 .Cast<Level>()
-                .OrderBy(l => l.Elevation)
+                .OrderBy(l => GetLevelAbsoluteElevation(doc, l))
                 .ToList();
 
             var currentIndex = levels.FindIndex(l => l.Id == currentLevel.Id);
             return currentIndex > 0 ? levels[currentIndex - 1] : null;
         }
 
-        private double ApplyCoordinateBaseConversion(Document doc, Level level, double baseElevation)
+        /// <summary>
+        /// Gets the absolute elevation of a level using ProjectElevation + Project Base Point Z position
+        /// This provides consistent elevation values regardless of level elevation base settings
+        /// </summary>
+        private double GetLevelAbsoluteElevation(Document doc, Level level)
         {
-            var basePoints = GetBasePoints(doc);
-            var coordinateBase = GetLevelCoordinateBase(level);
-
-            switch (coordinateBase)
-            {
-                case 1: // Survey Point
-                    if (basePoints.SurveyPoint != null)
-                    {
-                        var spSharedZ = basePoints.SurveyPoint.SharedPosition.Z;
-                        var spInternalZ = basePoints.SurveyPoint.Position.Z;
-                        var zOffset = spSharedZ - spInternalZ;
-                        return baseElevation - zOffset;
-                    }
-                    break;
-
-                case 0: // Project Base Point
-                    if (basePoints.ProjectBasePoint != null)
-                    {
-                        var pbpSharedZ = basePoints.ProjectBasePoint.SharedPosition.Z;
-                        var pbpInternalZ = basePoints.ProjectBasePoint.Position.Z;
-                        var zOffset = pbpSharedZ - pbpInternalZ;
-                        return baseElevation - zOffset;
-                    }
-                    break;
-            }
-
-            return baseElevation;
+            // Use ProjectElevation instead of Elevation for consistency
+            var projectElevation = level.ProjectElevation;
+            
+            // Get Project Base Point Z position
+            var projectBasePoint = GetProjectBasePoint(doc);
+            var basePointZ = projectBasePoint?.Position.Z ?? 0.0;
+            
+            // Calculate absolute elevation
+            return projectElevation + basePointZ;
         }
 
-        private double ReverseCoordinateBaseConversion(Document doc, Level level, double internalElevation)
+        /// <summary>
+        /// Gets the Project Base Point element from the document
+        /// </summary>
+        private BasePoint GetProjectBasePoint(Document doc)
         {
-            var basePoints = GetBasePoints(doc);
-            var coordinateBase = GetLevelCoordinateBase(level);
+            var basePointCollector = new FilteredElementCollector(doc)
+                .OfCategory(BuiltInCategory.OST_ProjectBasePoint)
+                .OfClass(typeof(BasePoint));
 
-            switch (coordinateBase)
-            {
-                case 1: // Survey Point
-                    if (basePoints.SurveyPoint != null)
-                    {
-                        var spSharedZ = basePoints.SurveyPoint.SharedPosition.Z;
-                        var spInternalZ = basePoints.SurveyPoint.Position.Z;
-                        var zOffset = spSharedZ - spInternalZ;
-                        return internalElevation + zOffset;
-                    }
-                    break;
-
-                case 0: // Project Base Point
-                    if (basePoints.ProjectBasePoint != null)
-                    {
-                        var pbpSharedZ = basePoints.ProjectBasePoint.SharedPosition.Z;
-                        var pbpInternalZ = basePoints.ProjectBasePoint.Position.Z;
-                        var zOffset = pbpSharedZ - pbpInternalZ;
-                        return internalElevation + zOffset;
-                    }
-                    break;
-            }
-
-            return internalElevation;
+            return basePointCollector.FirstOrDefault() as BasePoint;
         }
 
-        private BasePointInfo GetBasePoints(Document doc)
+        /// <summary>
+        /// Convert a level + offset to internal elevation using simplified approach
+        /// This matches the Python convert_level_offset_to_internal function
+        /// </summary>
+        public double ConvertAbsoluteToLevelOffset(double absoluteElevation, double levelAbsoluteElevation)
         {
-            var basePointCollector = new FilteredElementCollector(doc).OfClass(typeof(BasePoint));
-            var info = new BasePointInfo();
-
-            foreach (BasePoint bp in basePointCollector)
-            {
-                if (!bp.IsShared) // Project Base Point
-                {
-                    info.ProjectBasePoint = bp;
-                }
-                else // Survey Point
-                {
-                    info.SurveyPoint = bp;
-                }
-            }
-
-            return info;
+            return absoluteElevation - levelAbsoluteElevation;
         }
 
-        private int GetLevelCoordinateBase(Level level)
-        {
-            var levelTypeId = level.GetTypeId();
-            var levelType = level.Document.GetElement(levelTypeId);
 
-            if (levelType != null)
-            {
-                var coordinateBaseParam = levelType.get_Parameter(BuiltInParameter.LEVEL_RELATIVE_BASE_TYPE);
-                if (coordinateBaseParam != null)
-                {
-                    return coordinateBaseParam.AsInteger();
-                }
-            }
-
-            return 0; // Default to Project Base Point
-        }
-
-        private class BasePointInfo
-        {
-            public BasePoint ProjectBasePoint { get; set; }
-            public BasePoint SurveyPoint { get; set; }
-        }
     }
 }

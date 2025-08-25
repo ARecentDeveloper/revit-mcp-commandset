@@ -57,7 +57,7 @@ namespace RevitMCPCommandSet.Services
                             return result;
                         }
 
-                        elevations[plane.Key] = level.Elevation + offset;
+                        elevations[plane.Key] = GetLevelAbsoluteElevation(doc, level) + offset;
                         result.ValidatedElevations[plane.Key.ToLower().Replace(" ", "_")] = elevations[plane.Key].Value;
                     }
                 }
@@ -287,6 +287,35 @@ namespace RevitMCPCommandSet.Services
                 "view_depth" => "View Depth",
                 _ => planeName
             };
+        }
+
+        /// <summary>
+        /// Gets the absolute elevation of a level using ProjectElevation + Project Base Point Z position
+        /// This provides consistent elevation values regardless of level elevation base settings
+        /// </summary>
+        private double GetLevelAbsoluteElevation(Document doc, Level level)
+        {
+            // Use ProjectElevation instead of Elevation for consistency
+            var projectElevation = level.ProjectElevation;
+            
+            // Get Project Base Point Z position
+            var projectBasePoint = GetProjectBasePoint(doc);
+            var basePointZ = projectBasePoint?.Position.Z ?? 0.0;
+            
+            // Calculate absolute elevation
+            return projectElevation + basePointZ;
+        }
+
+        /// <summary>
+        /// Gets the Project Base Point element from the document
+        /// </summary>
+        private BasePoint GetProjectBasePoint(Document doc)
+        {
+            var basePointCollector = new FilteredElementCollector(doc)
+                .OfCategory(BuiltInCategory.OST_ProjectBasePoint)
+                .OfClass(typeof(BasePoint));
+
+            return basePointCollector.FirstOrDefault() as BasePoint;
         }
     }
 }

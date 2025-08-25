@@ -221,6 +221,19 @@ namespace RevitMCPCommandSet.Services.ViewRange
                 var elementId = new ElementId(long.Parse(args.ViewId));
                 selectedView = args.Document.GetElement(elementId) as ViewPlan;
             }
+            else if (!string.IsNullOrEmpty(args.ViewName))
+            {
+                // Find view by name
+                var planViews = GetSuitablePlanViews(args.Document);
+                selectedView = planViews.FirstOrDefault(v => v.Name == args.ViewName);
+                
+                if (selectedView == null)
+                {
+                    result.Success = false;
+                    result.Error = $"View with name '{args.ViewName}' not found or is not a suitable plan view";
+                    return result;
+                }
+            }
             else
             {
                 // Get suitable plan views
